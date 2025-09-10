@@ -32,7 +32,7 @@
     "no-console": "warn",
     "prefer-const": "error",
     "no-var": "error",
-    "eqeqeq": ["error", "strict"],
+    "eqeqeq": ["error", "always"],
     
     // Timer and scheduler specific rules
     "no-implied-eval": "error",
@@ -67,6 +67,10 @@
     "es2020": true,
     "jest": true
   },
+  "globals": {
+    "NodeJS": "readonly",
+    "navigator": "readonly"
+  },
   "ignorePatterns": [
     "dist/",
     "node_modules/",
@@ -74,13 +78,81 @@
   ],
   "overrides": [
     {
+      "files": ["tests/**/__mocks__/**/*.ts"],
+      "env": {
+        "jest": true
+      },
+      "rules": {
+        // Very relaxed rules for mock files
+        "@typescript-eslint/no-unused-vars": "off",
+        "no-unused-vars": "off",
+        "@typescript-eslint/no-explicit-any": "off",
+        "@typescript-eslint/no-non-null-assertion": "off",
+        "@typescript-eslint/no-empty-function": "off",
+        "no-console": "off",
+        "@typescript-eslint/strict-boolean-expressions": "off",
+        "@typescript-eslint/prefer-nullish-coalescing": "off",
+        "@typescript-eslint/prefer-optional-chain": "off",
+        "prefer-template": "off",
+        
+        // Async/promise rules for mock implementations
+        "@typescript-eslint/require-await": "off",
+        "@typescript-eslint/promise-function-async": "off",
+        "@typescript-eslint/no-floating-promises": "off",
+        "@typescript-eslint/await-thenable": "off",
+        "@typescript-eslint/no-misused-promises": "off"
+      }
+    },
+    {
       "files": ["tests/**/*.ts"],
+      "excludedFiles": ["tests/**/__mocks__/**/*.ts"],
+      "env": {
+        "jest": true
+      },
       "rules": {
         // Relaxed rules for test files
         "@typescript-eslint/no-explicit-any": "off",
         "@typescript-eslint/no-non-null-assertion": "off",
         "@typescript-eslint/no-empty-function": "off",
-        "no-console": "off"
+        "no-console": "off",
+        
+        // Jest-specific patterns
+        "@typescript-eslint/no-floating-promises": "off",
+        "@typescript-eslint/require-await": "off",
+        "@typescript-eslint/promise-function-async": "off",
+        "@typescript-eslint/no-unused-vars": ["warn", { 
+          "argsIgnorePattern": "^_|^(index|current|total|phase|details|ticketKey|error|name)$",
+          "varsIgnorePattern": "^_|^(mock|Mock|jest|expect|describe|it|test|beforeEach|afterEach|beforeAll|afterAll|waitFor|startTime|now|phases|syncDelay|firstTime).*$"
+        }],
+        "no-unused-vars": "off",
+        
+        // Timer mocking patterns
+        "@typescript-eslint/no-implied-eval": "off",
+        "@typescript-eslint/unbound-method": "off",
+        
+        // Test-specific async patterns
+        "@typescript-eslint/await-thenable": "off",
+        "@typescript-eslint/no-misused-promises": "off",
+        
+        // Allow test doubles and mocks
+        "@typescript-eslint/ban-types": "off",
+        "@typescript-eslint/no-empty-interface": "off",
+        
+        // Test setup patterns
+        "prefer-const": "off",
+        "@typescript-eslint/prefer-readonly": "off",
+        
+        // Relax strict boolean expressions for test utilities
+        "@typescript-eslint/strict-boolean-expressions": "off",
+        "@typescript-eslint/prefer-nullish-coalescing": "off",
+        "@typescript-eslint/prefer-optional-chain": "off",
+        
+        // Allow template concatenation in tests
+        "prefer-template": "off",
+        
+        // Relax test-specific rules
+        "radix": "off",
+        "no-prototype-builtins": "off"
       }
     },
     {

@@ -15,6 +15,7 @@ import { AutoSyncScheduler, AutoSyncConfig, AutoSyncStatus, AutoSyncResult } fro
 import { JiraClient } from '../../src/jira-bases-adapter/jira-client';
 import { JQLQueryEngine, JQLQueryResult } from '../../src/enhanced-sync/jql-query-engine';
 import { SyncPhase } from '../../src/enhanced-sync/sync-progress-model';
+import { setupFakeTimersForTest, cleanupTimersAfterTest, advanceTimersAndFlush } from '../utils/timer-utils';
 
 // ============================================================================
 // Test Setup and Mocking
@@ -23,9 +24,6 @@ import { SyncPhase } from '../../src/enhanced-sync/sync-progress-model';
 // Mock dependencies
 jest.mock('../../src/jira-bases-adapter/jira-client');
 jest.mock('../../src/enhanced-sync/jql-query-engine');
-
-// Mock timers
-jest.useFakeTimers();
 
 describe('AutoSyncScheduler', () => {
   let scheduler: AutoSyncScheduler;
@@ -38,6 +36,9 @@ describe('AutoSyncScheduler', () => {
   let completionCallback: jest.Mock;
   
   beforeEach(() => {
+    // Setup timers using our utility
+    setupFakeTimersForTest();
+    
     // Reset all mocks
     jest.clearAllMocks();
     jest.clearAllTimers();
@@ -93,7 +94,9 @@ describe('AutoSyncScheduler', () => {
   afterEach(async () => {
     // Clean up scheduler
     await scheduler.stop();
-    jest.clearAllTimers();
+    
+    // Use our timer cleanup utility
+    cleanupTimersAfterTest();
   });
   
   // ============================================================================
@@ -223,6 +226,9 @@ describe('AutoSyncScheduler', () => {
       // Try to start second sync immediately
       await expect(scheduler.triggerManualSync()).rejects.toThrow('Sync operation already in progress');
       
+      // Advance timer to complete the first sync
+      await advanceTimersAndFlush(1000);
+      
       // Wait for first sync to complete
       await firstSyncPromise;
       
@@ -316,8 +322,8 @@ describe('AutoSyncScheduler', () => {
       
       const syncPromise = scheduler.triggerManualSync();
       
-      // Check status while running (need to wait a moment for state to update)
-      await new Promise(resolve => setTimeout(resolve, 10));
+      // Advance timer a bit to let state update
+      await advanceTimersAndFlush(10);
       const runningStatus = scheduler.getStatus();
       expect(runningStatus.isRunning).toBe(true);
       expect(runningStatus.currentProgress).not.toBeNull();

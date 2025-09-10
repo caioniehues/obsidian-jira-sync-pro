@@ -268,10 +268,10 @@ describe('JQLQueryEngine', () => {
         expect(result.truncated).toBe(false);
         expect(result.errors).toEqual([]);
         
-        // Verify API call
+        // Verify API call with new token-based pagination
         expect(mockJiraClient.searchIssues).toHaveBeenCalledWith({
           jql,
-          startAt: 0,
+          nextPageToken: undefined, // First page has no token
           maxResults: 50,
           fields: expect.arrayContaining([
             'summary', 'status', 'assignee', 'priority', 
@@ -1492,19 +1492,54 @@ describe('JQLQueryEngine', () => {
         const page2Success = JiraFactory.createPaginatedSearchResponse(1, 50, 150);
         const page3Success = JiraFactory.createPaginatedSearchResponse(2, 50, 150);
 
+        // Track retry state for page 2
+        let page2HasErrored = false;
+        
         mockJiraClient.searchIssues = jest.fn()
-          .mockResolvedValueOnce(page1Success)      // Page 1: Success
-          .mockRejectedValueOnce(page2Error)        // Page 2: Error
-          .mockResolvedValueOnce(page2Success)      // Page 2: Retry success
-          .mockResolvedValueOnce(page3Success);     // Page 3: Success
+          .mockImplementation((params: any) => {
+            console.log('[TEST] searchIssues called with:', JSON.stringify(params, null, 2));
+            console.log('[TEST] Available tokens:', {
+              page1: page1Success.nextPageToken,
+              page2: page2Success.nextPageToken,
+              page3: page3Success.nextPageToken
+            });
+            
+            if (params.nextPageToken === undefined) {
+              // Page 1: First request with no token
+              console.log('[TEST] Returning page1Success');
+              return Promise.resolve(page1Success);
+            } else if (params.nextPageToken === page1Success.nextPageToken) {
+              // Page 2: Request with page 1's token
+              if (!page2HasErrored) {
+                console.log('[TEST] Returning page2Error (first attempt)');
+                page2HasErrored = true;
+                return Promise.reject(page2Error);
+              } else {
+                // Retry: Return page 2 success
+                console.log('[TEST] Returning page2Success (retry)');
+                return Promise.resolve(page2Success);
+              }
+            } else if (params.nextPageToken === page2Success.nextPageToken) {
+              // Page 3: Request with page 2's token
+              console.log('[TEST] Returning page3Success');
+              return Promise.resolve(page3Success);
+            } else {
+              console.log('[TEST] Unexpected nextPageToken:', params.nextPageToken);
+              throw new Error(`Unexpected nextPageToken: ${params.nextPageToken}`);
+            }
+          });
 
         // Act
-        const result = await engine.executeQuery({
+        const queryPromise = engine.executeQuery({
           jql,
           maxResults: 150,
           batchSize: 50,
           enableRetry: true
         });
+
+        // Advance time to allow retries
+        mockTimer.advanceTime(10000); // Allow for exponential backoff
+        const result = await queryPromise;
 
         // Assert
         expect(result.issues).toHaveLength(150);
@@ -1822,13 +1857,19 @@ describe('JQLQueryEngine', () => {
           startAt: 0,
           maxResults: 3,
           total: 5,
-          issues: page1Issues
+          issues: page1Issues,
+          // NEW: Token-based pagination fields
+          nextPageToken: 'token_page_2_test',
+          isLast: false
         };
         const page2 = {
           startAt: 3,
           maxResults: 3,
           total: 5,
-          issues: page2Issues
+          issues: page2Issues,
+          // NEW: Token-based pagination fields
+          nextPageToken: undefined, // Last page
+          isLast: true
         };
 
         mockJiraClient.searchIssues = jest.fn()
@@ -2305,7 +2346,7 @@ describe('JQLQueryEngine', () => {
         // Assert
         expect(mockJiraClient.searchIssues).toHaveBeenCalledWith({
           jql,
-          startAt: 0,
+          nextPageToken: undefined,
           maxResults: batchSize,
           fields
         });
@@ -2348,10 +2389,21 @@ describe('JQLQueryEngine', () => {
         const page2 = JiraFactory.createPaginatedSearchResponse(1, batchSize, totalIssues);
         const page3 = JiraFactory.createPaginatedSearchResponse(2, 15, totalIssues); // Final partial page
 
+        // Create a tracking mock to log what's being called
         mockJiraClient.searchIssues = jest.fn()
-          .mockResolvedValueOnce(page1)
-          .mockResolvedValueOnce(page2)
-          .mockResolvedValueOnce(page3);
+          .mockImplementation((params) => {
+            console.log('Mock called with params:', params);
+            if (params.nextPageToken === undefined) {
+              console.log('Returning page1:', page1);
+              return Promise.resolve(page1);
+            } else if (page1.nextPageToken && params.nextPageToken === page1.nextPageToken) {
+              console.log('Returning page2:', page2);
+              return Promise.resolve(page2);
+            } else {
+              console.log('Returning page3:', page3);
+              return Promise.resolve(page3);
+            }
+          });
 
         // Act
         await engine.executeQuery({
@@ -2360,13 +2412,13 @@ describe('JQLQueryEngine', () => {
           batchSize
         });
 
-        // Assert - Verify correct sequence of calls
+        // Assert - Verify correct sequence of calls with token-based pagination
         expect(mockJiraClient.searchIssues).toHaveBeenNthCalledWith(1, 
-          expect.objectContaining({ jql, startAt: 0, maxResults: batchSize }));
+          expect.objectContaining({ jql, nextPageToken: undefined, maxResults: batchSize }));
         expect(mockJiraClient.searchIssues).toHaveBeenNthCalledWith(2, 
-          expect.objectContaining({ jql, startAt: 20, maxResults: batchSize }));
+          expect.objectContaining({ jql, nextPageToken: expect.any(String), maxResults: batchSize }));
         expect(mockJiraClient.searchIssues).toHaveBeenNthCalledWith(3, 
-          expect.objectContaining({ jql, startAt: 40, maxResults: batchSize }));
+          expect.objectContaining({ jql, nextPageToken: expect.any(String), maxResults: batchSize }));
       });
     });
 
@@ -2380,10 +2432,10 @@ describe('JQLQueryEngine', () => {
         const scenarioIssue = JiraFactory.createScenarioIssue('high-priority-incident');
         
         const mixedResponse = {
-          startAt: 0,
           maxResults: 50,
           total: 16,
-          issues: [...bulkData.issues, scenarioIssue]
+          issues: [...bulkData.issues, scenarioIssue],
+          nextPageToken: undefined // No more pages
         };
         
         mockJiraClient.searchIssues = jest.fn().mockResolvedValue(mixedResponse);
