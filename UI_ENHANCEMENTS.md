@@ -50,7 +50,7 @@ Custom component library (`src/ui/shadcn-components.ts`) includes:
 #### **Tabs Component**
 - Clean tab navigation with active states
 - Smooth content transitions
-- Customizable tab change callbacks
+- Customizable tab change callbacsk
 
 ## 🚀 Key Features
 

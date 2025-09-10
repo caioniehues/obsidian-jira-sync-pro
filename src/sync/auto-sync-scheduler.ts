@@ -253,6 +253,29 @@ export class AutoSyncScheduler {
   getStatus(): AutoSyncStatus {
     return { ...this.status }; // Return copy to prevent modification
   }
+
+  /**
+   * Getters for compatibility with tests
+   */
+  get isRunning(): boolean {
+    return this.status.isRunning;
+  }
+
+  get lastSync(): Date | undefined {
+    return this.status.lastSyncTime ? new Date(this.status.lastSyncTime) : undefined;
+  }
+
+  get nextSync(): Date | undefined {
+    return this.status.nextSyncTime ? new Date(this.status.nextSyncTime) : undefined;
+  }
+
+  get syncCount(): number {
+    return this.status.totalSyncsCompleted;
+  }
+
+  get errorCount(): number {
+    return this.status.totalErrors;
+  }
   
   /**
    * Sets progress callback

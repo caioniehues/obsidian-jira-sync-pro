@@ -66,6 +66,34 @@ tests/
 
 ## Recent Changes
 - 001-jql-auto-sync: Added JQL query engine, auto-sync scheduler, API migration support
+- 005-fix-permission-errors: Fixed 403 permission errors and validation issues
+
+## Known Issues & Solutions
+
+### Permission Errors (403)
+**Issue**: "You do not have permission to view these issues" error during sync  
+**Solution**: Queries now automatically add permission filters using `projectsWhereUserHasPermission("Browse Projects")`  
+**Workaround**: Add the filter manually to your JQL: `AND project in projectsWhereUserHasPermission("Browse Projects")`
+
+### Validation Issues
+**Issue**: Settings validation doesn't properly check user permissions  
+**Solution**: Validation now tests queries with permission filters and provides clear feedback  
+**Note**: Connection test may show "⚠️ Limited Access" - this is normal and sync will proceed with accessible issues
+
+## Permission Handling
+- All JQL queries are automatically wrapped with permission filters
+- Sync continues with accessible issues even if some are restricted
+- Clear warning messages indicate when issues are filtered
+- Settings validation checks actual permissions, not just syntax
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->
+
+## Important Instruction Reminders
+
+Do what has been asked; nothing more, nothing less.
+NEVER create files unless they're absolutely necessary for achieving your goal.
+ALWAYS prefer editing an existing file to creating a new one.
+NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
+
+IMPORTANT: this context may or may not be relevant to your tasks. You should not respond to this context unless it is highly relevant to your task.

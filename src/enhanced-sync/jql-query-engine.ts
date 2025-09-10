@@ -1,4 +1,7 @@
-import { JiraClient } from '../jira-bases-adapter/jira-client';
+import { JiraClient, JiraPermissionError } from '../jira-bases-adapter/jira-client';
+
+// Permission filter to ensure we only get accessible issues
+const PERMISSION_SAFE_JQL_SUFFIX = ' AND project in projectsWhereUserHasPermission("Browse Projects")';
 
 /**
  * Configuration options for executing a JQL query
@@ -66,6 +69,7 @@ export interface QueryError {
   message: string;
   code?: string;
   retryable?: boolean;
+  suggestion?: string;  // Added for permission error suggestions
 }
 
 /**
@@ -100,6 +104,19 @@ export class JQLQueryEngine {
   
   constructor(jiraClient: JiraClient) {
     this.jiraClient = jiraClient;
+  }
+
+  /**
+   * Makes a JQL query permission-safe by adding project filters
+   */
+  private makeQueryPermissionSafe(jql: string): string {
+    // Don't add if already has permission filter
+    if (jql.includes('projectsWhereUserHasPermission')) {
+      return jql;
+    }
+    
+    // Add permission filter to ensure we only get accessible issues
+    return `(${jql})${PERMISSION_SAFE_JQL_SUFFIX}`;
   }
 
   /**
@@ -155,6 +172,9 @@ export class JQLQueryEngine {
       throw new Error('batchSize must be greater than 0');
     }
 
+    // Make query permission-safe
+    const safeJql = this.makeQueryPermissionSafe(jql);
+
     const result: JQLQueryResult = {
       issues: [],
       total: 0,
@@ -182,11 +202,12 @@ export class JQLQueryEngine {
 
         // Execute the search request with token-based pagination
         const response = await this.executeSearchWithRetry({
-          jql,
+          jql: safeJql,  // Use permission-safe query
           maxResults: currentBatchSize,
           fields,
           enableRetry,
-          nextPageToken: currentPageToken // NEW: Token-based pagination
+          nextPageToken: currentPageToken, // NEW: Token-based pagination
+          signal // Pass abort signal
         });
 
         // Process the response
@@ -218,13 +239,30 @@ export class JQLQueryEngine {
         result.nextPageToken = response.nextPageToken;
         result.isLast = response.nextPageToken === undefined || result.issues.length >= maxResults;
 
-        // Mark as truncated if we hit the maxResults limit
-        if (response.nextPageToken && result.issues.length >= maxResults) {
+        // Mark as truncated if we hit the maxResults limit but there are more issues
+        if (result.issues.length >= maxResults && result.total > result.issues.length) {
           result.truncated = true;
         }
 
-      } catch (error) {
-        // Handle specific error types
+      } catch (error: any) {
+        // Handle permission errors gracefully
+        if (error.name === 'JiraPermissionError') {
+          console.warn('Permission error detected:', error.message);
+          console.warn('Suggested action:', error.suggestedAction);
+          
+          // Add warning to result but don't fail completely
+          result.errors = result.errors || [];
+          result.errors.push({
+            message: `Permission error: ${error.message}`,
+            suggestion: error.suggestedAction
+          });
+          
+          // Return what we have so far with a warning
+          result.executionTime = Date.now() - startTime;
+          return result;
+        }
+        
+        // Handle other error types
         if (this.isRetryableError(error) && enableRetry) {
           // Will be retried in executeSearchWithRetry
           throw error;
@@ -251,12 +289,18 @@ export class JQLQueryEngine {
     fields: string[];
     enableRetry: boolean;
     nextPageToken?: string; // NEW: Token-based pagination
+    signal?: AbortSignal; // Add signal parameter
   }): Promise<any> {
-    const { jql, maxResults, fields, enableRetry, nextPageToken } = params;
+    const { jql, maxResults, fields, enableRetry, nextPageToken, signal } = params;
     let lastError: any;
     const maxAttempts = enableRetry ? 3 : 1;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      // Check for cancellation before each attempt
+      if (signal?.aborted) {
+        throw new Error('Request aborted');
+      }
+
       try {
         return await this.jiraClient.searchIssues({
           jql,
@@ -272,9 +316,14 @@ export class JQLQueryEngine {
           throw error;
         }
 
+        // Check for cancellation before retry delay
+        if (signal?.aborted) {
+          throw new Error('Request aborted');
+        }
+
         // Calculate delay for retry
         const delay = this.calculateRetryDelay(error, attempt);
-        await this.sleep(delay);
+        await this.sleep(delay, signal);
       }
     }
 
@@ -339,7 +388,24 @@ export class JQLQueryEngine {
   /**
    * Sleep utility for retry delays
    */
-  private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+  private sleep(ms: number, signal?: AbortSignal): Promise<void> {
+    return new Promise((resolve, reject) => {
+      // Check if already aborted
+      if (signal?.aborted) {
+        reject(new Error('Request aborted'));
+        return;
+      }
+
+      const timer = setTimeout(resolve, ms);
+
+      // Listen for abort signal
+      if (signal) {
+        const abortHandler = () => {
+          clearTimeout(timer);
+          reject(new Error('Request aborted'));
+        };
+        signal.addEventListener('abort', abortHandler, { once: true });
+      }
+    });
   }
 }

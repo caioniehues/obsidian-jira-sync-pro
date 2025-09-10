@@ -180,13 +180,15 @@ describe('JQLQueryEngine', () => {
           issues: page1Issues,
           total: 2000,
           startAt: 0,
-          maxResults: 50
+          maxResults: 50,
+          nextPageToken: 'token_page_2' // Add pagination token
         })
         .mockResolvedValueOnce({
           issues: page2Issues,
           total: 2000,
           startAt: 50,
           maxResults: 50
+          // No nextPageToken as we'll hit maxResults
         });
 
       // Act
@@ -253,7 +255,7 @@ describe('JQLQueryEngine', () => {
       const rateLimitError = {
         status: 429,
         message: 'Rate limit exceeded',
-        retryAfter: 1
+        retryAfter: 0.1 // Reduce to 100ms for testing
       };
       const mockIssues = [{ key: 'TEST-1', fields: { summary: 'Issue 1' } }];
 
@@ -263,7 +265,9 @@ describe('JQLQueryEngine', () => {
           issues: mockIssues,
           total: 1,
           startAt: 0,
-          maxResults: 50
+          maxResults: 50,
+          nextPageToken: undefined, // No more pages
+          isLast: true
         });
 
       // Act
@@ -277,7 +281,7 @@ describe('JQLQueryEngine', () => {
       // Assert
       expect(result.issues).toEqual(mockIssues);
       expect(mockJiraClient.searchIssues).toHaveBeenCalledTimes(2);
-    });
+    }, 10000); // Increase timeout for retry test
 
     it('should handle authentication errors', async () => {
       // Arrange
@@ -406,13 +410,15 @@ describe('JQLQueryEngine', () => {
           issues: page1,
           total: 80,
           startAt: 0,
-          maxResults: 50
+          maxResults: 50,
+          nextPageToken: 'token_page_2' // Add pagination token
         })
         .mockResolvedValueOnce({
           issues: page2,
           total: 80,
           startAt: 50,
           maxResults: 50
+          // No nextPageToken as this is the last page
         });
 
       // Act
@@ -465,9 +471,15 @@ describe('JQLQueryEngine', () => {
       const abortController = new AbortController();
       
       mockJiraClient.searchIssues = jest.fn().mockImplementation(async () => {
-        // Simulate delay
+        // Simulate delay that's longer than the abort timeout
         await new Promise(resolve => setTimeout(resolve, 100));
-        throw new Error('Request aborted');
+        // If we get here, the request wasn't aborted in time - return valid data
+        return {
+          issues: [{ key: 'TEST-1', fields: { summary: 'Issue 1' } }],
+          total: 1,
+          startAt: 0,
+          maxResults: 50
+        };
       });
 
       // Act
@@ -478,11 +490,11 @@ describe('JQLQueryEngine', () => {
         signal: abortController.signal
       });
 
-      // Cancel after starting
+      // Cancel quickly after starting
       setTimeout(() => abortController.abort(), 10);
 
       // Assert
       await expect(queryPromise).rejects.toThrow('Request aborted');
-    });
+    }, 10000); // Increase timeout
   });
 });

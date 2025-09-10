@@ -4,6 +4,7 @@ import { JQLQueryEngine } from './enhanced-sync/jql-query-engine';
 import { AutoSyncScheduler, AutoSyncConfig } from './enhanced-sync/auto-sync-scheduler';
 import { BulkImportManager } from './enhanced-sync/bulk-import-manager';
 import { EnhancedSyncDashboard } from './ui/enhanced-dashboard';
+import { SimpleNoteService } from './services/simple-note-service';
 
 interface JiraSyncProSettings {
   jiraUrl: string;
@@ -297,6 +298,21 @@ export default class JiraSyncProPlugin extends Plugin {
     try {
       new Notice(`Jira Sync Pro: ${isManual ? 'Manual' : 'Auto'} sync started...`);
       
+      // Create note service
+      const noteService = new SimpleNoteService(
+        this.app.vault,
+        this.settings.syncFolder
+      );
+      
+      // Statistics for sync
+      const stats = {
+        created: 0,
+        updated: 0,
+        skipped: 0,
+        errors: 0,
+        total: 0
+      };
+      
       const result = await this.queryEngine.executeQuery({
         jql: this.settings.jqlQuery,
         maxResults: this.settings.maxResults,
@@ -308,8 +324,67 @@ export default class JiraSyncProPlugin extends Plugin {
         }
       });
 
-      // TODO: Process the tickets and create/update notes
-      console.log(`Synced ${result.issues.length} tickets`);
+      // Check for permission warnings in the result
+      if (result.errors && result.errors.length > 0) {
+        const permissionErrors = result.errors.filter(e => e.message.includes('Permission'));
+        if (permissionErrors.length > 0) {
+          new Notice(`⚠️ Some issues were filtered due to permissions. Syncing ${result.issues.length} accessible issues.`);
+          console.warn('Permission warnings:', permissionErrors);
+        }
+      }
+
+      // Process each ticket and create/update notes
+      stats.total = result.issues.length;
+      
+      if (stats.total === 0) {
+        new Notice('Jira Sync Pro: No accessible issues found. Check your JQL query and permissions.');
+        return;
+      }
+      
+      new Notice(`Jira Sync Pro: Processing ${stats.total} tickets...`);
+      
+      for (const ticket of result.issues) {
+        try {
+          const noteResult = await noteService.processTicket(ticket, {
+            overwriteExisting: true,  // Update existing notes
+            organizationStrategy: 'by-project',  // Organize by project
+            preserveLocalNotes: true  // Preserve local notes section
+          });
+          
+          // Update statistics
+          switch (noteResult.action) {
+            case 'created':
+              stats.created++;
+              break;
+            case 'updated':
+              stats.updated++;
+              break;
+            case 'skipped':
+              stats.skipped++;
+              break;
+            case 'error':
+              stats.errors++;
+              console.error(`Error processing ${ticket.key}:`, noteResult.error);
+              break;
+          }
+        } catch (error) {
+          stats.errors++;
+          console.error(`Failed to process ticket ${ticket.key}:`, error);
+        }
+      }
+      
+      // Show final statistics
+      const successCount = stats.created + stats.updated;
+      let message = `Jira Sync Pro: Sync complete!\n`;
+      message += `✅ Success: ${successCount}/${stats.total}\n`;
+      if (stats.created > 0) message += `📝 Created: ${stats.created}\n`;
+      if (stats.updated > 0) message += `🔄 Updated: ${stats.updated}\n`;
+      if (stats.skipped > 0) message += `⏭️ Skipped: ${stats.skipped}\n`;
+      if (stats.errors > 0) message += `❌ Errors: ${stats.errors}`;
+      
+      new Notice(message, 5000);
+      
+      console.log('Sync statistics:', stats);
       
     } catch (error: any) {
       console.error('Sync failed:', error);

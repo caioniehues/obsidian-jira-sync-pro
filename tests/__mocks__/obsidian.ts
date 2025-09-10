@@ -147,6 +147,12 @@ export class MockHTMLElement {
     return this.children;
   }
 
+  empty(): void {
+    this.children = [];
+    this.innerHTML = '';
+    this.textContent = '';
+  }
+
   getElementById(id: string): MockHTMLElement | null {
     // Simple mock
     return this.children.find(child => child.getAttribute('id') === id) || null;
@@ -251,8 +257,16 @@ export class Vault {
     return Array.from(this.files.values());
   }
 
+  getMarkdownFiles(): TFile[] {
+    return Array.from(this.files.values()).filter(f => f.extension === 'md');
+  }
+
   getFolders(): TFolder[] {
     return Array.from(this.folders.values());
+  }
+
+  getFolderByPath(path: string): TFolder | null {
+    return this.folders.get(path) || null;
   }
 
   getAllLoadedFiles(): TAbstractFile[] {
@@ -476,6 +490,10 @@ export class Plugin {
 
   registerView(type: string, viewCreator: (leaf: WorkspaceLeaf) => ItemView): void {
     // Mock implementation
+  }
+
+  registerEvent(event: any): void {
+    // Mock implementation for event registration
   }
 
   registerDomEvent(element: Element, event: string, callback: Function): void {

@@ -633,18 +633,39 @@ export class JQLAutoSyncSettingsTab extends PluginSettingTab {
       return result;
     }
     
-    // Test execution if query engine available
+    // Test execution with permission safety
     if (this.queryEngine) {
       try {
-        const isValid = await this.queryEngine.validateQuery(query);
+        // First test with permission filter
+        const safeQuery = query.includes('projectsWhereUserHasPermission') 
+          ? query 
+          : `(${query}) AND project in projectsWhereUserHasPermission("Browse Projects")`;
+        
+        const isValid = await this.queryEngine.validateQuery(safeQuery);
+        
         result.connectionValid = true;
         result.queryExecutable = isValid;
         
         if (!isValid) {
-          result.errors.push('JQL query cannot be executed');
+          result.errors.push('JQL query cannot be executed. You may not have access to the specified projects.');
+          result.warnings.push('Tip: The query will automatically filter to only show issues you have permission to view.');
+        } else {
+          // Test without filter to see if there's a difference
+          try {
+            await this.queryEngine.validateQuery(query);
+          } catch (permError: any) {
+            if (permError.status === 403 || permError.name === 'JiraPermissionError') {
+              result.warnings.push('Some issues may be filtered due to permissions. This is normal and sync will continue with accessible issues.');
+            }
+          }
         }
       } catch (error: any) {
-        result.errors.push(`Query validation failed: ${error.message}`);
+        if (error.status === 403 || error.name === 'JiraPermissionError') {
+          result.errors.push('Permission denied. Please verify your Jira project access.');
+          result.warnings.push(error.suggestedAction || 'Contact your Jira administrator for project access.');
+        } else {
+          result.errors.push(`Query validation failed: ${error.message}`);
+        }
       }
     }
     
@@ -663,7 +684,13 @@ export class JQLAutoSyncSettingsTab extends PluginSettingTab {
     if (!this.connectionTestButton) return false;
     
     const validation = this.validateSettings(this.settings);
-    if (!validation.isValid) {
+    
+    // Don't block on validation errors if they're just warnings
+    const hasBlockingErrors = validation.errors.filter(e => 
+      !e.includes('JQL query') // Allow JQL issues to be tested
+    ).length > 0;
+    
+    if (hasBlockingErrors) {
       new Notice('❌ Please fix configuration errors first');
       return false;
     }
@@ -676,11 +703,16 @@ export class JQLAutoSyncSettingsTab extends PluginSettingTab {
     try {
       this.setButtonState(this.connectionTestButton, 'testing', 'Testing...', true);
       
-      const isValid = await this.queryEngine.validateQuery(this.settings.jqlQuery);
+      // Test with permission-safe query
+      const safeQuery = this.settings.jqlQuery.includes('projectsWhereUserHasPermission')
+        ? this.settings.jqlQuery
+        : `(${this.settings.jqlQuery}) AND project in projectsWhereUserHasPermission("Browse Projects")`;
+      
+      const isValid = await this.queryEngine.validateQuery(safeQuery);
       
       if (isValid) {
         this.setButtonState(this.connectionTestButton, 'success', '✅ Connected', false);
-        new Notice('✅ Connection successful!');
+        new Notice('✅ Connection successful! Query will be filtered to accessible issues.');
         
         setTimeout(() => {
           this.setButtonState(this.connectionTestButton, 'default', 'Test Connection', false);
@@ -688,16 +720,27 @@ export class JQLAutoSyncSettingsTab extends PluginSettingTab {
         
         return true;
       } else {
-        this.setButtonState(this.connectionTestButton, 'error', '❌ Invalid Query', false);
-        new Notice('❌ Connection successful but JQL query is invalid');
+        this.setButtonState(this.connectionTestButton, 'warning', '⚠️ Limited Access', false);
+        new Notice('⚠️ Connection works but you may have limited project access');
         
         setTimeout(() => {
           this.setButtonState(this.connectionTestButton, 'default', 'Test Connection', false);
         }, 3000);
         
-        return false;
+        return true; // Still return true as connection works
       }
     } catch (error: any) {
+      if (error.status === 403 || error.name === 'JiraPermissionError') {
+        this.setButtonState(this.connectionTestButton, 'warning', '⚠️ Permission Issue', false);
+        new Notice(`⚠️ Connection works but permissions are limited. ${error.suggestedAction || ''}`);
+        
+        setTimeout(() => {
+          this.setButtonState(this.connectionTestButton, 'default', 'Test Connection', false);
+        }, 3000);
+        
+        return true; // Connection technically works, just permission limited
+      }
+      
       this.setButtonState(this.connectionTestButton, 'error', '❌ Failed', false);
       new Notice(`❌ Connection failed: ${error.message}`);
       

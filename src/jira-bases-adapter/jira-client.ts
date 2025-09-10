@@ -1,6 +1,21 @@
 import { requestUrl, RequestUrlParam, RequestUrlResponse } from 'obsidian';
 
 /**
+ * Custom error for Jira permission issues
+ */
+export class JiraPermissionError extends Error {
+  constructor(
+    message: string,
+    public statusCode: number,
+    public originalResponse?: any,
+    public suggestedAction?: string
+  ) {
+    super(message);
+    this.name = 'JiraPermissionError';
+  }
+}
+
+/**
  * Token bucket rate limiter for API requests
  */
 class TokenBucket {
@@ -172,7 +187,15 @@ export class JiraClient {
 
       // Handle response
       if (response.status >= 200 && response.status < 300) {
-        const result = response.json;
+        // Check if response is JSON
+        let result;
+        try {
+          result = response.json;
+        } catch (parseError) {
+          // Response is not JSON, likely an XSRF or authentication error
+          console.error('Non-JSON response from Jira:', response.text);
+          throw new Error(`Jira API returned non-JSON response. This often indicates authentication issues or XSRF protection. Status: ${response.status}`);
+        }
         
         // NEW: Always set startAt to 0 for new API compatibility
         result.startAt = 0;
@@ -283,7 +306,9 @@ export class JiraClient {
     return {
       'Authorization': `Basic ${auth}`,
       'Accept': 'application/json',
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      'X-Atlassian-Token': 'no-check',  // Bypass XSRF check for API token auth
+      'User-Agent': 'Obsidian-Jira-Sync-Pro/1.0.0'  // Identify as API client
     };
   }
 
@@ -291,6 +316,42 @@ export class JiraClient {
    * Handles API error responses
    */
   private handleApiError(response: RequestUrlResponse): any {
+    // Check for XSRF error in response text
+    if (response.text && (response.text.includes('XSRF check failed') || response.text.includes('X-AUSERNAME'))) {
+      const error: any = new Error('XSRF validation failed. This usually indicates an authentication issue with Jira Cloud.');
+      error.status = response.status;
+      error.suggestedAction = 'Please verify your API token and ensure you are using a valid Jira Cloud API token, not a password.';
+      throw error;
+    }
+    
+    // Special handling for 403 permission errors
+    if (response.status === 403) {
+      let detailedMessage = 'Permission denied';
+      let suggestedAction = '';
+      
+      try {
+        if (response.json?.errorMessages?.length > 0) {
+          detailedMessage = response.json.errorMessages.join(', ');
+        }
+        
+        // Check for specific permission patterns
+        if (detailedMessage.includes('browse') || detailedMessage.includes('project')) {
+          suggestedAction = 'Try adding: AND project in projectsWhereUserHasPermission("Browse Projects")';
+        } else {
+          suggestedAction = 'Contact your Jira administrator to verify your project permissions';
+        }
+      } catch (e) {
+        // Use default message
+      }
+      
+      throw new JiraPermissionError(
+        detailedMessage,
+        403,
+        response.json,
+        suggestedAction
+      );
+    }
+    
     const error: any = new Error(this.getErrorMessage(response));
     error.status = response.status;
     
