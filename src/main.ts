@@ -30,24 +30,228 @@ const DEFAULT_SETTINGS: JiraSyncProSettings = {
 };
 
 export default class JiraSyncProPlugin extends Plugin {
-  settings: JiraSyncProSettings = DEFAULT_SETTINGS;
+  // Initialize settings immediately with defaults to prevent undefined errors
+  settings: JiraSyncProSettings = { ...DEFAULT_SETTINGS };
   jiraClient: JiraClient | null = null;
   queryEngine: JQLQueryEngine | null = null;
   scheduler: AutoSyncScheduler | null = null;
   bulkImportManager: BulkImportManager | null = null;
+  private initializationPromise: Promise<void> | null = null;
+  private isInitialized: boolean = false;
 
   async onload() {
-    await this.loadSettings();
+    console.log('Jira Sync Pro: Starting plugin initialization...');
+    
+    try {
+      // Load settings first - critical for preventing undefined errors
+      await this.loadSettings();
+      console.log('Jira Sync Pro: Settings loaded successfully');
 
-    // Initialize Jira client and query engine if configured
-    if (this.settings.jiraUrl && this.settings.jiraApiToken) {
-      this.initializeJiraComponents();
+      // Add settings tab
+      this.addSettingTab(new JiraSyncProSettingTab(this.app, this));
+
+      // Initialize Jira components if configured
+      if (this.hasValidCredentials()) {
+        console.log('Jira Sync Pro: Valid credentials found, initializing components...');
+        await this.initializeJiraComponents();
+      } else {
+        console.log('Jira Sync Pro: No valid credentials, skipping component initialization');
+        new Notice('Jira Sync Pro: Please configure your Jira credentials in settings');
+      }
+
+      // Register commands
+      this.registerCommands();
+
+      // Start auto-sync if enabled and properly configured
+      if (this.settings.autoSyncEnabled && this.scheduler && this.hasValidCredentials()) {
+        try {
+          await this.scheduler.start();
+          new Notice('Jira Sync Pro: Auto-sync started');
+        } catch (error) {
+          console.error('Failed to start auto-sync:', error);
+          new Notice('Jira Sync Pro: Failed to start auto-sync. Check your credentials.');
+        }
+      }
+
+      this.isInitialized = true;
+      console.log('Jira Sync Pro: Plugin initialization complete');
+    } catch (error) {
+      console.error('Jira Sync Pro: Plugin initialization failed:', error);
+      new Notice('Jira Sync Pro: Plugin initialization failed. Check console for details.');
+      // Ensure settings are at least set to defaults
+      this.settings = { ...DEFAULT_SETTINGS };
+    }
+  }
+
+  async onunload() {
+    console.log('Jira Sync Pro: Unloading plugin...');
+    
+    // Stop scheduler if running
+    if (this.scheduler) {
+      try {
+        this.scheduler.stop();
+      } catch (error) {
+        console.error('Error stopping scheduler:', error);
+      }
     }
 
-    // Add settings tab
-    this.addSettingTab(new JiraSyncProSettingTab(this.app, this));
+    // Clean up other resources
+    this.jiraClient = null;
+    this.queryEngine = null;
+    this.bulkImportManager = null;
+    this.isInitialized = false;
+  }
 
-    // Register commands
+  async loadSettings() {
+    try {
+      const savedData = await this.loadData();
+      // Merge saved settings with defaults to ensure all fields are present
+      this.settings = {
+        ...DEFAULT_SETTINGS,
+        ...(savedData || {})
+      };
+      
+      // Validate settings structure
+      this.validateSettingsStructure();
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+      // Fall back to defaults
+      this.settings = { ...DEFAULT_SETTINGS };
+    }
+  }
+
+  async saveSettings() {
+    try {
+      await this.saveData(this.settings);
+      
+      // Reinitialize components if settings changed and credentials are valid
+      if (this.hasValidCredentials()) {
+        await this.initializeJiraComponents();
+      } else {
+        // Clear components if credentials are invalid
+        this.clearJiraComponents();
+      }
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+      new Notice('Failed to save settings. Check console for details.');
+    }
+  }
+
+  private validateSettingsStructure() {
+    // Ensure all required fields exist
+    const requiredFields: (keyof JiraSyncProSettings)[] = [
+      'jiraUrl', 'jiraUsername', 'jiraApiToken', 'jqlQuery',
+      'syncInterval', 'autoSyncEnabled', 'maxResults', 'batchSize', 'syncFolder'
+    ];
+
+    for (const field of requiredFields) {
+      if (this.settings[field] === undefined) {
+        console.warn(`Missing setting field: ${field}, using default`);
+        this.settings[field] = DEFAULT_SETTINGS[field];
+      }
+    }
+
+    // Validate numeric fields
+    if (typeof this.settings.syncInterval !== 'number' || this.settings.syncInterval < 1) {
+      this.settings.syncInterval = DEFAULT_SETTINGS.syncInterval;
+    }
+    if (typeof this.settings.maxResults !== 'number' || this.settings.maxResults < 1) {
+      this.settings.maxResults = DEFAULT_SETTINGS.maxResults;
+    }
+    if (typeof this.settings.batchSize !== 'number' || this.settings.batchSize < 1) {
+      this.settings.batchSize = DEFAULT_SETTINGS.batchSize;
+    }
+  }
+
+  private hasValidCredentials(): boolean {
+    return !!(
+      this.settings &&
+      this.settings.jiraUrl &&
+      this.settings.jiraUrl.trim() !== '' &&
+      this.settings.jiraApiToken &&
+      this.settings.jiraApiToken.trim() !== '' &&
+      this.settings.jiraUsername &&
+      this.settings.jiraUsername.trim() !== ''
+    );
+  }
+
+  private async initializeJiraComponents() {
+    try {
+      // Clear existing components first
+      this.clearJiraComponents();
+
+      // Initialize Jira client with error handling
+      this.jiraClient = new JiraClient();
+      this.jiraClient.configure({
+        baseUrl: this.settings.jiraUrl.trim(),
+        email: this.settings.jiraUsername.trim(),
+        apiToken: this.settings.jiraApiToken.trim()
+      });
+
+      // Test the connection before proceeding
+      try {
+        console.log('Jira Sync Pro: Testing connection...');
+        // You might want to add a testConnection method to JiraClient
+        // For now, we'll proceed assuming the connection will be tested on first use
+      } catch (error) {
+        console.error('Jira connection test failed:', error);
+        new Notice('Jira Sync Pro: Connection failed. Please check your credentials.');
+        this.clearJiraComponents();
+        return;
+      }
+
+      // Initialize query engine
+      this.queryEngine = new JQLQueryEngine(this.jiraClient);
+
+      // Initialize bulk import manager
+      this.bulkImportManager = new BulkImportManager(
+        this,
+        this.queryEngine,
+        this.settings.syncFolder
+      );
+
+      // Initialize scheduler
+      const syncConfig: AutoSyncConfig = {
+        enabled: this.settings.autoSyncEnabled,
+        jqlQuery: this.settings.jqlQuery,
+        syncInterval: this.settings.syncInterval,
+        maxResults: this.settings.maxResults,
+        batchSize: this.settings.batchSize
+      };
+
+      this.scheduler = new AutoSyncScheduler(
+        this,
+        this.queryEngine,
+        syncConfig,
+        async (options) => {
+          await this.performSync(options.isManual);
+        }
+      );
+
+      console.log('Jira Sync Pro: Components initialized successfully');
+    } catch (error) {
+      console.error('Failed to initialize Jira components:', error);
+      new Notice('Jira Sync Pro: Failed to initialize. Check your settings.');
+      this.clearJiraComponents();
+    }
+  }
+
+  private clearJiraComponents() {
+    if (this.scheduler) {
+      try {
+        this.scheduler.stop();
+      } catch (error) {
+        console.error('Error stopping scheduler:', error);
+      }
+    }
+    
+    this.scheduler = null;
+    this.bulkImportManager = null;
+    this.queryEngine = null;
+    this.jiraClient = null;
+  }
+
+  private registerCommands() {
     this.addCommand({
       id: 'jira-sync-manual',
       name: 'Manual sync now',
@@ -72,74 +276,21 @@ export default class JiraSyncProPlugin extends Plugin {
       callback: () => this.openSyncDashboard()
     });
 
-    // Start auto-sync if enabled
-    if (this.settings.autoSyncEnabled && this.scheduler) {
-      await this.scheduler.start();
-      new Notice('Jira Sync Pro: Auto-sync started');
-    }
-  }
-
-  async onunload() {
-    // Stop scheduler if running
-    if (this.scheduler) {
-      this.scheduler.stop();
-    }
-  }
-
-  async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-  }
-
-  async saveSettings() {
-    await this.saveData(this.settings);
-    
-    // Reinitialize components if settings changed
-    if (this.settings.jiraUrl && this.settings.jiraApiToken) {
-      this.initializeJiraComponents();
-    }
-  }
-
-  private initializeJiraComponents() {
-    // Initialize Jira client
-    this.jiraClient = new JiraClient();
-    this.jiraClient.configure({
-      baseUrl: this.settings.jiraUrl,
-      email: this.settings.jiraUsername,
-      apiToken: this.settings.jiraApiToken
+    this.addCommand({
+      id: 'jira-sync-test-connection',
+      name: 'Test Jira connection',
+      callback: () => this.testJiraConnection()
     });
-
-    // Initialize query engine
-    this.queryEngine = new JQLQueryEngine(this.jiraClient);
-
-    // Initialize bulk import manager
-    this.bulkImportManager = new BulkImportManager(
-      this,
-      this.queryEngine,
-      this.settings.syncFolder
-    );
-
-    // Initialize scheduler
-    const syncConfig: AutoSyncConfig = {
-      enabled: this.settings.autoSyncEnabled,
-      jqlQuery: this.settings.jqlQuery,
-      syncInterval: this.settings.syncInterval,
-      maxResults: this.settings.maxResults,
-      batchSize: this.settings.batchSize
-    };
-
-    this.scheduler = new AutoSyncScheduler(
-      this,
-      this.queryEngine,
-      syncConfig,
-      async (options) => {
-        await this.performSync(options.isManual);
-      }
-    );
   }
 
   private async performSync(isManual: boolean) {
-    if (!this.queryEngine) {
+    if (!this.hasValidCredentials()) {
       new Notice('Jira Sync Pro: Please configure Jira settings first');
+      return;
+    }
+
+    if (!this.queryEngine) {
+      new Notice('Jira Sync Pro: Jira components not initialized. Check your settings.');
       return;
     }
 
@@ -160,13 +311,26 @@ export default class JiraSyncProPlugin extends Plugin {
       // TODO: Process the tickets and create/update notes
       console.log(`Synced ${result.issues.length} tickets`);
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Sync failed:', error);
-      new Notice(`Jira Sync Pro: Sync failed - ${error.message}`);
+      
+      // Provide more specific error messages
+      if (error.message?.includes('401') || error.message?.includes('403')) {
+        new Notice('Jira Sync Pro: Authentication failed. Please check your credentials.');
+      } else if (error.message?.includes('permission')) {
+        new Notice('Jira Sync Pro: Permission denied. Check your Jira access rights.');
+      } else {
+        new Notice(`Jira Sync Pro: Sync failed - ${error.message || 'Unknown error'}`);
+      }
     }
   }
 
   private async performManualSync() {
+    if (!this.hasValidCredentials()) {
+      new Notice('Jira Sync Pro: Please configure your credentials first');
+      return;
+    }
+
     if (this.scheduler) {
       await this.scheduler.triggerManualSync();
     } else {
@@ -175,8 +339,13 @@ export default class JiraSyncProPlugin extends Plugin {
   }
 
   private async performBulkImport() {
+    if (!this.hasValidCredentials()) {
+      new Notice('Jira Sync Pro: Please configure your credentials first');
+      return;
+    }
+
     if (!this.bulkImportManager) {
-      new Notice('Jira Sync Pro: Please configure Jira settings first');
+      new Notice('Jira Sync Pro: Bulk import not available. Check your settings.');
       return;
     }
 
@@ -195,11 +364,16 @@ export default class JiraSyncProPlugin extends Plugin {
         Last sync: ${stats.lastSyncTime || 'Never'}
         Status: ${stats.currentStatus}`);
     } else {
-      new Notice('Jira Sync Pro: Scheduler not initialized');
+      new Notice('Jira Sync Pro: Scheduler not initialized. Check your credentials.');
     }
   }
 
   private openSyncDashboard() {
+    if (!this.hasValidCredentials()) {
+      new Notice('Jira Sync Pro: Please configure your credentials first');
+      return;
+    }
+
     // Use the enhanced dashboard with shadcn-inspired UI components
     const dashboard = new EnhancedSyncDashboard(
       this.app,
@@ -208,8 +382,44 @@ export default class JiraSyncProPlugin extends Plugin {
     );
     dashboard.open();
   }
-}
 
+  private async testJiraConnection() {
+    if (!this.hasValidCredentials()) {
+      new Notice('Jira Sync Pro: Please configure your credentials first');
+      return;
+    }
+
+    if (!this.queryEngine) {
+      // Try to initialize components
+      await this.initializeJiraComponents();
+      if (!this.queryEngine) {
+        new Notice('Jira Sync Pro: Failed to initialize Jira connection');
+        return;
+      }
+    }
+
+    try {
+      new Notice('Jira Sync Pro: Testing connection...');
+      const isValid = await this.queryEngine.validateQuery(this.settings.jqlQuery);
+      
+      if (isValid) {
+        new Notice('✅ Jira Sync Pro: Connection successful!');
+      } else {
+        new Notice('❌ Jira Sync Pro: Connection works but JQL query is invalid');
+      }
+    } catch (error: any) {
+      console.error('Connection test failed:', error);
+      
+      if (error.message?.includes('401')) {
+        new Notice('❌ Jira Sync Pro: Authentication failed. Check your API token.');
+      } else if (error.message?.includes('403')) {
+        new Notice('❌ Jira Sync Pro: Permission denied. Check your Jira access.');
+      } else {
+        new Notice(`❌ Jira Sync Pro: Connection failed - ${error.message || 'Unknown error'}`);
+      }
+    }
+  }
+}
 class JiraSyncProSettingTab extends PluginSettingTab {
   plugin: JiraSyncProPlugin;
   private jqlQueryValidationTimeout: NodeJS.Timeout | null = null;
