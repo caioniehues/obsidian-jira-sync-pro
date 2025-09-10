@@ -204,10 +204,10 @@ export class JiraFactory {
    * Creates a Jira search response
    */
   static createSearchResponse(options: SearchResponseOptions = {}): SearchResponse {
-    const issueCount = options.issueCount || 5;
-    const total = options.total || issueCount;
-    const startAt = options.startAt || 0;
-    const maxResults = options.maxResults || 50;
+    const issueCount = options.issueCount !== undefined ? options.issueCount : 5;
+    const total = options.total !== undefined ? options.total : issueCount;
+    const startAt = options.startAt !== undefined ? options.startAt : 0;
+    const maxResults = options.maxResults !== undefined ? options.maxResults : 50;
     
     const issues = this.createIssues(issueCount);
 

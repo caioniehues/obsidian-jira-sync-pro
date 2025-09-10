@@ -6,6 +6,7 @@ import {
   SyncError,
   BULK_IMPORT_DEFAULTS
 } from '../models/bulk-import-progress';
+import { SimpleNoteService } from '../services/simple-note-service';
 
 /**
  * Options for bulk import operation
@@ -220,6 +221,13 @@ export class BulkImportManager {
   }
 
   /**
+   * Gets total imported count
+   */
+  get totalImported(): number {
+    return this.currentProgress?.processed || 0;
+  }
+
+  /**
    * Initialize progress tracking
    */
   private initializeProgress(options: BulkImportOptions): void {
@@ -398,35 +406,24 @@ export class BulkImportManager {
       throw new Error('Invalid ticket data: missing fields or summary');
     }
 
-    // Determine file path
-    const folder = options.organizeByProject && ticket.fields.project
-      ? `${this.syncFolder}/${ticket.fields.project.key}`
-      : this.syncFolder;
+    // Create note service
+    const noteService = new SimpleNoteService(
+      this.plugin.app.vault,
+      this.syncFolder
+    );
     
-    await this.ensureFolder(folder);
+    // Process the ticket using the note service
+    const result = await noteService.processTicket(ticket, {
+      overwriteExisting: !options.skipExisting,
+      organizationStrategy: options.organizeByProject ? 'by-project' : 'flat',
+      preserveLocalNotes: true
+    });
     
-    const fileName = `${ticket.key}.md`;
-    const filePath = normalizePath(`${folder}/${fileName}`);
-
-    // Check if file exists
-    const existingFile = this.plugin.app.vault.getAbstractFileByPath(filePath);
-    
-    if (existingFile && options.skipExisting) {
-      return 'skipped';
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to process ticket');
     }
-
-    // Create note content
-    const content = this.createNoteContent(ticket);
-
-    if (existingFile instanceof TFile) {
-      // Update existing file
-      await this.plugin.app.vault.modify(existingFile, content);
-      return 'updated';
-    } else {
-      // Create new file
-      await this.plugin.app.vault.create(filePath, content);
-      return 'created';
-    }
+    
+    return result.action as 'created' | 'updated' | 'skipped';
   }
 
   /**

@@ -283,8 +283,8 @@ describe('JQLQueryEngine', () => {
         // Verify progress callbacks
         const calls = progressCallback.getCalls();
         expect(calls).toEqual([
-          { current: 0, total: 2, phase: 'searching' },
-          { current: 2, total: 2, phase: 'complete' }
+          { current: 0, total: 2, phase: 'searching', details: undefined },
+          { current: 2, total: 2, phase: 'complete', details: undefined }
         ]);
       });
 
@@ -339,8 +339,8 @@ describe('JQLQueryEngine', () => {
         // Verify progress callbacks for empty results
         const calls = progressCallback.getCalls();
         expect(calls).toEqual([
-          { current: 0, total: 0, phase: 'searching' },
-          { current: 0, total: 0, phase: 'complete' }
+          { current: 0, total: 0, phase: 'searching', details: undefined },
+          { current: 0, total: 0, phase: 'complete', details: undefined }
         ]);
       });
     });
@@ -843,10 +843,10 @@ describe('JQLQueryEngine', () => {
         // Assert - Verify exact phase sequence
         const calls = progressCallback.getCalls();
         expect(calls).toEqual([
-          { current: 0, total: 120, phase: 'searching' },    // Initial search
-          { current: 50, total: 120, phase: 'downloading' }, // After page 1
-          { current: 100, total: 120, phase: 'downloading' }, // After page 2  
-          { current: 120, total: 120, phase: 'complete' }    // Final completion
+          { current: 0, total: 120, phase: 'searching', details: undefined },    // Initial search
+          { current: 50, total: 120, phase: 'downloading', details: undefined }, // After page 1
+          { current: 100, total: 120, phase: 'downloading', details: undefined }, // After page 2  
+          { current: 120, total: 120, phase: 'complete', details: undefined }    // Final completion
         ]);
         
         expect(progressCallback.callback).toHaveBeenCalledTimes(4);
@@ -988,10 +988,10 @@ describe('JQLQueryEngine', () => {
         // Assert - Verify each progress report is accurate
         const calls = progressCallback.getCalls();
         expect(calls).toEqual([
-          { current: 0, total: 87, phase: 'searching' },
-          { current: 40, total: 87, phase: 'downloading' },
-          { current: 80, total: 87, phase: 'downloading' },
-          { current: 87, total: 87, phase: 'complete' }
+          { current: 0, total: 87, phase: 'searching', details: undefined },
+          { current: 40, total: 87, phase: 'downloading', details: undefined },
+          { current: 80, total: 87, phase: 'downloading', details: undefined },
+          { current: 87, total: 87, phase: 'complete', details: undefined }
         ]);
       });
 
@@ -1016,8 +1016,8 @@ describe('JQLQueryEngine', () => {
         // Assert
         const calls = progressCallback.getCalls();
         expect(calls).toEqual([
-          { current: 0, total: 0, phase: 'searching' },
-          { current: 0, total: 0, phase: 'complete' }
+          { current: 0, total: 0, phase: 'searching', details: undefined },
+          { current: 0, total: 0, phase: 'complete', details: undefined }
         ]);
       });
     });
@@ -1133,18 +1133,30 @@ describe('JQLQueryEngine', () => {
           .mockRejectedValueOnce(networkError)
           .mockResolvedValueOnce(successResponse);
 
+        // Use fake timers to control retry delays
+        jest.useFakeTimers();
+
         // Act
-        const result = await engine.executeQuery({
+        const queryPromise = engine.executeQuery({
           jql,
           maxResults: 50,
           batchSize: 50,
           enableRetry: true
         });
 
+        // Fast-forward through retry delays with promise flushing
+        await jest.advanceTimersByTimeAsync(2000); // First retry delay
+        await jest.advanceTimersByTimeAsync(4000); // Second retry delay
+
+        const result = await queryPromise;
+
         // Assert
         expect(result.issues).toHaveLength(1);
         expect(mockJiraClient.searchIssues).toHaveBeenCalledTimes(3);
-      });
+
+        // Restore real timers
+        jest.useRealTimers();
+      }, 10000);
 
       it('should fail after maximum retry attempts', async () => {
         // Arrange
@@ -1152,17 +1164,29 @@ describe('JQLQueryEngine', () => {
         const persistentError = new Error('Persistent network error');
         mockJiraClient.searchIssues = jest.fn().mockRejectedValue(persistentError);
 
-        // Act & Assert
-        await expect(engine.executeQuery({
+        // Use fake timers
+        jest.useFakeTimers();
+
+        // Act
+        const queryPromise = engine.executeQuery({
           jql,
           maxResults: 50,
           batchSize: 50,
           enableRetry: true
-        })).rejects.toThrow('Persistent network error');
+        });
+
+        // Fast-forward through all retry delays
+        await jest.advanceTimersByTimeAsync(10000); // Advance enough for all retries
+
+        // Assert
+        await expect(queryPromise).rejects.toThrow('Persistent network error');
 
         // Should attempt exactly 3 times (1 original + 2 retries)
         expect(mockJiraClient.searchIssues).toHaveBeenCalledTimes(3);
-      });
+
+        // Restore real timers
+        jest.useRealTimers();
+      }, 10000);
     });
 
     describe('HTTP Error Codes', () => {
