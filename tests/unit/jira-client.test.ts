@@ -108,20 +108,21 @@ describe('JiraClient', () => {
       jiraClient.configure(validConfig);
     });
 
-    it('should call the correct /search/jql endpoint', async () => {
+    it('should call the correct /search/jql endpoint with POST method', async () => {
       const searchParams: SearchParams = { jql: 'project = TEST' };
       
       await jiraClient.searchIssues(searchParams);
       
       expect(mockRequestUrl).toHaveBeenCalledWith(
         expect.objectContaining({
-          url: expect.stringContaining('/rest/api/3/search/jql'),
-          method: 'GET'
+          url: 'https://test.atlassian.net/rest/api/3/search/jql',
+          method: 'POST',
+          body: expect.stringContaining('"jql":"project = TEST"')
         })
       );
     });
 
-    it('should handle minimal search parameters', async () => {
+    it('should handle minimal search parameters with POST body', async () => {
       const searchParams: SearchParams = { jql: 'project = TEST' };
       const mockResponse = {
         issues: [{ key: 'TEST-1', summary: 'Test issue' }],
@@ -143,12 +144,16 @@ describe('JiraClient', () => {
       expect(result).toEqual(mockResponse);
       expect(mockRequestUrl).toHaveBeenCalledWith(
         expect.objectContaining({
-          url: expect.stringContaining('jql=project%20%3D%20TEST&startAt=0&maxResults=50')
+          method: 'POST',
+          body: JSON.stringify({
+            jql: 'project = TEST',
+            maxResults: 50
+          })
         })
       );
     });
 
-    it('should handle all search parameters', async () => {
+    it('should handle all search parameters in POST body', async () => {
       const searchParams: SearchParams = {
         jql: 'project = TEST AND status = "In Progress"',
         startAt: 10,
@@ -160,22 +165,22 @@ describe('JiraClient', () => {
       
       await jiraClient.searchIssues(searchParams);
       
-      const expectedUrl = expect.stringContaining('/rest/api/3/search/jql');
       expect(mockRequestUrl).toHaveBeenCalledWith(
         expect.objectContaining({
-          url: expect.stringMatching(new RegExp(
-            'jql=.*' +
-            'startAt=10.*' +
-            'maxResults=25.*' +
-            'fields=summary%2Cdescription%2Cassignee.*' +
-            'expand=changelog%2Ctransitions.*' +
-            'validateQuery=true'
-          ))
+          url: 'https://test.atlassian.net/rest/api/3/search/jql',
+          method: 'POST',
+          body: JSON.stringify({
+            jql: 'project = TEST AND status = "In Progress"',
+            maxResults: 1, // Reduced for validation queries
+            fields: ['summary', 'description', 'assignee'],
+            expand: ['changelog', 'transitions'],
+            validateQuery: true
+          })
         })
       );
     });
 
-    it('should handle complex JQL queries', async () => {
+    it('should handle complex JQL queries in POST body', async () => {
       const complexJQL = 'project = TEST AND assignee in (currentUser(), "john.doe") AND created >= -7d ORDER BY priority DESC';
       const searchParams: SearchParams = { jql: complexJQL };
       
@@ -183,19 +188,27 @@ describe('JiraClient', () => {
       
       expect(mockRequestUrl).toHaveBeenCalledWith(
         expect.objectContaining({
-          url: expect.stringContaining(encodeURIComponent(complexJQL))
+          method: 'POST',
+          body: JSON.stringify({
+            jql: complexJQL,
+            maxResults: 50
+          })
         })
       );
     });
 
-    it('should default missing parameters correctly', async () => {
+    it('should default missing parameters correctly in POST body', async () => {
       const searchParams: SearchParams = { jql: 'project = TEST' };
       
       await jiraClient.searchIssues(searchParams);
       
       expect(mockRequestUrl).toHaveBeenCalledWith(
         expect.objectContaining({
-          url: expect.stringContaining('startAt=0&maxResults=50')
+          method: 'POST',
+          body: JSON.stringify({
+            jql: 'project = TEST',
+            maxResults: 50
+          })
         })
       );
     });
@@ -584,12 +597,12 @@ describe('JiraClient', () => {
     });
   });
 
-  describe('Query Parameter Building', () => {
+  describe('Request Body Building', () => {
     beforeEach(() => {
       jiraClient.configure(validConfig);
     });
 
-    it('should properly encode JQL queries', async () => {
+    it('should properly handle JQL queries with special characters in POST body', async () => {
       const jqlWithSpecialChars = 'project = "TEST PROJECT" AND assignee = "john.doe@example.com"';
       const searchParams: SearchParams = { jql: jqlWithSpecialChars };
       
@@ -597,12 +610,16 @@ describe('JiraClient', () => {
       
       expect(mockRequestUrl).toHaveBeenCalledWith(
         expect.objectContaining({
-          url: expect.stringContaining(encodeURIComponent(jqlWithSpecialChars))
+          method: 'POST',
+          body: JSON.stringify({
+            jql: jqlWithSpecialChars,
+            maxResults: 50
+          })
         })
       );
     });
 
-    it('should handle multiple fields correctly', async () => {
+    it('should handle multiple fields correctly in POST body', async () => {
       const searchParams: SearchParams = {
         jql: 'project = TEST',
         fields: ['summary', 'description', 'assignee', 'customfield_10001']
@@ -612,12 +629,17 @@ describe('JiraClient', () => {
       
       expect(mockRequestUrl).toHaveBeenCalledWith(
         expect.objectContaining({
-          url: expect.stringContaining('fields=summary%2Cdescription%2Cassignee%2Ccustomfield_10001')
+          method: 'POST',
+          body: JSON.stringify({
+            jql: 'project = TEST',
+            maxResults: 50,
+            fields: ['summary', 'description', 'assignee', 'customfield_10001']
+          })
         })
       );
     });
 
-    it('should handle multiple expand parameters correctly', async () => {
+    it('should handle multiple expand parameters correctly in POST body', async () => {
       const searchParams: SearchParams = {
         jql: 'project = TEST',
         expand: ['changelog', 'transitions', 'operations', 'renderedFields']
@@ -627,15 +649,20 @@ describe('JiraClient', () => {
       
       expect(mockRequestUrl).toHaveBeenCalledWith(
         expect.objectContaining({
-          url: expect.stringContaining('expand=changelog%2Ctransitions%2Coperations%2CrenderedFields')
+          method: 'POST',
+          body: JSON.stringify({
+            jql: 'project = TEST',
+            maxResults: 50,
+            expand: ['changelog', 'transitions', 'operations', 'renderedFields']
+          })
         })
       );
     });
 
-    it('should convert numbers to strings for startAt and maxResults', async () => {
+    it('should handle pagination parameters in POST body (startAt deprecated, maxResults as number)', async () => {
       const searchParams: SearchParams = {
         jql: 'project = TEST',
-        startAt: 100,
+        startAt: 100, // Deprecated but still accepted
         maxResults: 25
       };
       
@@ -643,12 +670,16 @@ describe('JiraClient', () => {
       
       expect(mockRequestUrl).toHaveBeenCalledWith(
         expect.objectContaining({
-          url: expect.stringContaining('startAt=100&maxResults=25')
+          method: 'POST',
+          body: JSON.stringify({
+            jql: 'project = TEST',
+            maxResults: 25
+          })
         })
       );
     });
 
-    it('should include validateQuery parameter when true', async () => {
+    it('should include validateQuery parameter when true in POST body', async () => {
       const searchParams: SearchParams = {
         jql: 'project = TEST',
         validateQuery: true
@@ -658,12 +689,17 @@ describe('JiraClient', () => {
       
       expect(mockRequestUrl).toHaveBeenCalledWith(
         expect.objectContaining({
-          url: expect.stringContaining('validateQuery=true')
+          method: 'POST',
+          body: JSON.stringify({
+            jql: 'project = TEST',
+            maxResults: 1, // Reduced for validation
+            validateQuery: true
+          })
         })
       );
     });
 
-    it('should not include validateQuery parameter when false', async () => {
+    it('should not include validateQuery parameter when false in POST body', async () => {
       const searchParams: SearchParams = {
         jql: 'project = TEST',
         validateQuery: false
@@ -671,8 +707,33 @@ describe('JiraClient', () => {
       
       await jiraClient.searchIssues(searchParams);
       
-      const calledUrl = (mockRequestUrl.mock.calls[0][0] as any).url;
-      expect(calledUrl).not.toContain('validateQuery');
+      const calledBody = JSON.parse((mockRequestUrl.mock.calls[0][0] as any).body);
+      expect(calledBody.validateQuery).toBeUndefined();
+      expect(calledBody).toEqual({
+        jql: 'project = TEST',
+        maxResults: 50
+      });
+    });
+
+    it('should handle nextPageToken parameter for token-based pagination', async () => {
+      const searchParams: SearchParams = {
+        jql: 'project = TEST',
+        nextPageToken: 'token123',
+        maxResults: 25
+      };
+      
+      await jiraClient.searchIssues(searchParams);
+      
+      expect(mockRequestUrl).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            jql: 'project = TEST',
+            maxResults: 25,
+            nextPageToken: 'token123'
+          })
+        })
+      );
     });
   });
 
@@ -765,12 +826,15 @@ describe('JiraClient', () => {
       jiraClient.configure(validConfig);
     });
 
-    it('should use GET method for search requests', async () => {
+    it('should use POST method for search requests with new API', async () => {
       await jiraClient.searchIssues({ jql: 'project = TEST' });
       
       expect(mockRequestUrl).toHaveBeenCalledWith(
         expect.objectContaining({
-          method: 'GET'
+          method: 'POST',
+          headers: expect.objectContaining({
+            'Content-Type': 'application/json'
+          })
         })
       );
     });
@@ -819,7 +883,7 @@ describe('JiraClient', () => {
       jiraClient.configure(validConfig);
     });
 
-    it('should handle very long JQL queries', async () => {
+    it('should handle very long JQL queries in POST body', async () => {
       const veryLongJQL = 'project = TEST AND assignee in (' + 
         Array(100).fill(0).map((_, i) => `"user${i}"`).join(', ') + 
         ') ORDER BY created DESC';
@@ -830,15 +894,19 @@ describe('JiraClient', () => {
       
       expect(mockRequestUrl).toHaveBeenCalledWith(
         expect.objectContaining({
-          url: expect.stringContaining(encodeURIComponent(veryLongJQL))
+          method: 'POST',
+          body: JSON.stringify({
+            jql: veryLongJQL,
+            maxResults: 50
+          })
         })
       );
     });
 
-    it('should handle maximum pagination parameters', async () => {
+    it('should handle maximum pagination parameters in POST body (startAt deprecated)', async () => {
       const searchParams: SearchParams = {
         jql: 'project = TEST',
-        startAt: 999999,
+        startAt: 999999, // Deprecated, not included in body
         maxResults: 1000
       };
       
@@ -846,12 +914,16 @@ describe('JiraClient', () => {
       
       expect(mockRequestUrl).toHaveBeenCalledWith(
         expect.objectContaining({
-          url: expect.stringContaining('startAt=999999&maxResults=1000')
+          method: 'POST',
+          body: JSON.stringify({
+            jql: 'project = TEST',
+            maxResults: 1000
+          })
         })
       );
     });
 
-    it('should handle zero maxResults', async () => {
+    it('should handle zero maxResults in POST body', async () => {
       const searchParams: SearchParams = {
         jql: 'project = TEST',
         maxResults: 0
@@ -861,12 +933,16 @@ describe('JiraClient', () => {
       
       expect(mockRequestUrl).toHaveBeenCalledWith(
         expect.objectContaining({
-          url: expect.stringContaining('maxResults=0')
+          method: 'POST',
+          body: JSON.stringify({
+            jql: 'project = TEST',
+            maxResults: 0
+          })
         })
       );
     });
 
-    it('should handle single field and expand parameters', async () => {
+    it('should handle single field and expand parameters in POST body', async () => {
       const searchParams: SearchParams = {
         jql: 'project = TEST',
         fields: ['summary'],
@@ -877,7 +953,13 @@ describe('JiraClient', () => {
       
       expect(mockRequestUrl).toHaveBeenCalledWith(
         expect.objectContaining({
-          url: expect.stringContaining('fields=summary&expand=changelog')
+          method: 'POST',
+          body: JSON.stringify({
+            jql: 'project = TEST',
+            maxResults: 50,
+            fields: ['summary'],
+            expand: ['changelog']
+          })
         })
       );
     });

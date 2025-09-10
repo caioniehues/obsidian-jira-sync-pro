@@ -2,10 +2,9 @@ import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals
 import { SyncStatusDashboard, SyncStatistics, SyncError, SyncHistoryEntry } from '../src/enhanced-sync/sync-status-dashboard';
 import { AutoSyncScheduler } from '../src/enhanced-sync/auto-sync-scheduler';
 import { JQLQueryEngine } from '../src/enhanced-sync/jql-query-engine';
-import { App } from 'obsidian';
 
-// Mock Obsidian
-jest.mock('obsidian');
+// Import the mocks directly to ensure they work correctly
+import { App } from './__mocks__/obsidian';
 
 // Mock the scheduler and query engine
 jest.mock('../src/enhanced-sync/auto-sync-scheduler');
@@ -21,12 +20,8 @@ describe('SyncStatusDashboard', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     
-    // Create mock app
-    mockApp = {
-      workspace: {
-        getActiveViewOfType: jest.fn()
-      }
-    };
+    // Create mock app using the proper mock class
+    mockApp = new App();
     
     // Create mock statistics
     mockStatistics = {
@@ -423,33 +418,9 @@ describe('SyncStatusDashboard', () => {
         }
       );
       
-      // Mock the contentEl and other DOM elements
-      const mockTabEl = {
-        addEventListener: jest.fn(),
-        addClass: jest.fn(),
-        removeClass: jest.fn()
-      };
-      
-      const mockContainerEl = {
-        empty: jest.fn(),
-        createEl: jest.fn().mockReturnValue(mockTabEl),
-        createDiv: jest.fn().mockReturnValue({
-          empty: jest.fn(),
-          createEl: jest.fn().mockReturnValue(mockTabEl),
-          createDiv: jest.fn().mockReturnValue({
-            empty: jest.fn(),
-            createEl: jest.fn()
-          }),
-          querySelectorAll: jest.fn().mockReturnValue([mockTabEl])
-        })
-      };
-      
-      (refreshDashboard as any).contentEl = {
-        empty: jest.fn(),
-        addClass: jest.fn(),
-        createEl: jest.fn().mockReturnValue(mockContainerEl),
-        createDiv: jest.fn().mockReturnValue(mockContainerEl)
-      };
+      // Use proper MockHTMLElement for contentEl instead of incomplete manual mock
+      const { MockHTMLElement } = require('./__mocks__/obsidian');
+      (refreshDashboard as any).contentEl = new MockHTMLElement('div');
       
       // Simulate opening the dashboard to start auto-refresh
       refreshDashboard.onOpen();

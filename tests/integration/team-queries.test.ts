@@ -257,7 +257,9 @@ describe('Team Query Configuration Integration Tests', () => {
           startAt: 0,
           maxResults: 50,
           total: totalExpectedIssues,
-          issues: teamIssues
+          issues: teamIssues,
+          nextPageToken: undefined,
+          isLast: true
         };
 
         mockJiraClient.searchIssues = jest.fn().mockResolvedValue(page1);
@@ -323,7 +325,9 @@ describe('Team Query Configuration Integration Tests', () => {
           startAt: 0,
           maxResults: 50,
           total: 3,
-          issues: orderedTeamIssues
+          issues: orderedTeamIssues,
+          nextPageToken: undefined,
+          isLast: true
         });
 
         // Act
@@ -375,7 +379,9 @@ describe('Team Query Configuration Integration Tests', () => {
           startAt: 0,
           maxResults: 50,
           total: 2,
-          issues: sprintIssues
+          issues: sprintIssues,
+          nextPageToken: undefined,
+          isLast: true
         });
 
         // Act
@@ -430,19 +436,25 @@ describe('Team Query Configuration Integration Tests', () => {
           startAt: 0,
           maxResults: teamBatchSize,
           total: totalIssues,
-          issues: page1Issues
+          issues: page1Issues,
+          nextPageToken: `token_page_1_${Date.now()}`,
+          isLast: false
         };
         const page2 = {
           startAt: teamBatchSize,
           maxResults: teamBatchSize,
           total: totalIssues,
-          issues: page2Issues
+          issues: page2Issues,
+          nextPageToken: `token_page_2_${Date.now()}`,
+          isLast: false
         };
         const page3 = {
           startAt: teamBatchSize * 2,
           maxResults: teamBatchSize,
           total: totalIssues,
-          issues: page3Issues
+          issues: page3Issues,
+          nextPageToken: undefined,
+          isLast: true
         };
 
         mockJiraClient.searchIssues = jest.fn()
@@ -541,7 +553,9 @@ describe('Team Query Configuration Integration Tests', () => {
           startAt: 0,
           maxResults: 50,
           total: 2,
-          issues: initialTeamIssues
+          issues: initialTeamIssues,
+          nextPageToken: undefined,
+          isLast: true
         });
 
         // Act: First sync
@@ -557,7 +571,9 @@ describe('Team Query Configuration Integration Tests', () => {
           startAt: 0,
           maxResults: 50,
           total: 3,
-          issues: updatedTeamIssues
+          issues: updatedTeamIssues,
+          nextPageToken: undefined,
+          isLast: true
         });
 
         // Act: Second sync (simulating team member changes)
@@ -607,7 +623,8 @@ describe('Team Query Configuration Integration Tests', () => {
 
         // First sync: Full team
         mockJiraClient.searchIssues = jest.fn().mockResolvedValue({
-          startAt: 0, maxResults: 50, total: 3, issues: fullTeamIssues
+          startAt: 0, maxResults: 50, total: 3, issues: fullTeamIssues,
+          nextPageToken: undefined, isLast: true
         });
 
         const fullTeamResult = await engine.executeQuery({
@@ -616,7 +633,8 @@ describe('Team Query Configuration Integration Tests', () => {
 
         // Second sync: Reduced team (Charlie removed)
         mockJiraClient.searchIssues = jest.fn().mockResolvedValue({
-          startAt: 0, maxResults: 50, total: 2, issues: reducedTeamIssues
+          startAt: 0, maxResults: 50, total: 2, issues: reducedTeamIssues,
+          nextPageToken: undefined, isLast: true
         });
 
         const reducedTeamResult = await engine.executeQuery({
@@ -659,7 +677,8 @@ describe('Team Query Configuration Integration Tests', () => {
 
         // First sync: Base team
         mockJiraClient.searchIssues = jest.fn().mockResolvedValue({
-          startAt: 0, maxResults: 50, total: 2, issues: baseTeamIssues
+          startAt: 0, maxResults: 50, total: 2, issues: baseTeamIssues,
+          nextPageToken: undefined, isLast: true
         });
 
         const baseResult = await engine.executeQuery({
@@ -669,7 +688,8 @@ describe('Team Query Configuration Integration Tests', () => {
 
         // Second sync: Expanded team with new member
         mockJiraClient.searchIssues = jest.fn().mockResolvedValue({
-          startAt: 0, maxResults: 50, total: 4, issues: expandedTeamIssues
+          startAt: 0, maxResults: 50, total: 4, issues: expandedTeamIssues,
+          nextPageToken: undefined, isLast: true
         });
 
         const expandedResult = await engine.executeQuery({
@@ -686,8 +706,8 @@ describe('Team Query Configuration Integration Tests', () => {
         );
         
         expect(newMemberIssues).toHaveLength(2);
-        expect(newMemberIssues[0].summary).toContain('Welcome task');
-        expect(newMemberIssues[1].summary).toContain('Training task');
+        expect(newMemberIssues[0].fields.summary).toContain('Welcome task');
+        expect(newMemberIssues[1].fields.summary).toContain('Training task');
       });
     });
   });
@@ -727,7 +747,9 @@ describe('Team Query Configuration Integration Tests', () => {
           startAt: 0,
           maxResults: teamOversightConfig.batchSize,
           total: 3,
-          issues: oversightIssues
+          issues: oversightIssues,
+          nextPageToken: undefined,
+          isLast: true
         });
 
         // Act: Execute with team oversight settings
@@ -785,13 +807,17 @@ describe('Team Query Configuration Integration Tests', () => {
             startAt: 0,
             maxResults: teamBatchSize,
             total: totalTeamIssues,
-            issues: batchIssues
+            issues: batchIssues,
+            nextPageToken: `token_batch_1_${Date.now()}`,
+            isLast: false
           })
           .mockResolvedValueOnce({
             startAt: teamBatchSize,
             maxResults: teamBatchSize,
             total: totalTeamIssues,
-            issues: remainingIssues
+            issues: remainingIssues,
+            nextPageToken: undefined,
+            isLast: true
           });
 
         const teamBatchJQL = 'project = BATCH AND sprint in openSprints() AND assignee in ("member1@company.com", "member2@company.com", "member3@company.com", "member4@company.com", "member5@company.com")';
@@ -878,7 +904,9 @@ describe('Team Query Configuration Integration Tests', () => {
           startAt: 0,
           maxResults: 50,
           total: 0,
-          issues: []
+          issues: [],
+          nextPageToken: undefined,
+          isLast: true
         });
 
         // Act
@@ -949,7 +977,9 @@ describe('Team Query Configuration Integration Tests', () => {
         startAt: 0,
         maxResults: 50,
         total: performanceIssueCount,
-        issues: performanceIssues
+        issues: performanceIssues,
+        nextPageToken: undefined,
+        isLast: true
       });
 
       // Act: Measure sync performance

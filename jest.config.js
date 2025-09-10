@@ -14,8 +14,8 @@ module.exports = {
     '^obsidian$': '<rootDir>/tests/__mocks__/obsidian.ts'
   },
   // Timer mocking configuration for scheduler testing
+  // Note: Individual tests can import timer utilities as needed
   fakeTimers: {
     enableGlobally: true
-  },
-  setupFilesAfterEnv: ['<rootDir>/tests/utils/timer-utils.ts']
+  }
 };

@@ -273,7 +273,11 @@ Login form not validating email format correctly
           autoSyncConfig,
           async (options) => {
             // This callback should sync issues to vault
-            const searchResult = await jqlQueryEngine.executeQuery(testJQLQuery, { maxResults: 1000 });
+            const searchResult = await jqlQueryEngine.executeQuery({
+              jql: testJQLQuery,
+              maxResults: 1000,
+              batchSize: 50
+            });
             
             for (const issue of searchResult.issues) {
               const markdownContent = await generateMarkdownContent(issue);
@@ -293,15 +297,21 @@ Login form not validating email format correctly
       // Step 2: Validate JQL query (Test Query button functionality)
       const validationResult = await jqlQueryEngine.validateQuery(testJQLQuery);
       
-      expect(validationResult.isValid).toBe(true);
-      expect(validationResult.errorMessage).toBeNull();
-      expect(validationResult.estimatedCount).toBe(mockJiraIssues.length);
+      expect(validationResult).toBe(true);
       
-      // Verify JQL validation was called with correct parameters
-      expect(mockJiraClient.validateJQLQuery).toHaveBeenCalledWith(testJQLQuery);
+      // Verify JQL validation was called with correct parameters  
+      expect(mockJiraClient.searchIssues).toHaveBeenCalledWith({
+        jql: testJQLQuery,
+        maxResults: 0,
+        validateQuery: true
+      });
 
       // Step 3: Execute test query to verify results
-      const testQueryResult = await jqlQueryEngine.executeQuery(testJQLQuery, { maxResults: 100 });
+      const testQueryResult = await jqlQueryEngine.executeQuery({
+        jql: testJQLQuery,
+        maxResults: 100,
+        batchSize: 50
+      });
       
       expect(testQueryResult).toBeDefined();
       expect(testQueryResult.total).toBe(mockJiraIssues.length);
@@ -404,20 +414,14 @@ Login form not validating email format correctly
       const invalidQuery = 'INVALID JQL SYNTAX';
       
       // Mock validation failure
-      mockJiraClient.validateJQLQuery.mockResolvedValue({
-        isValid: false,
-        errorMessage: 'Invalid JQL syntax near INVALID',
-        estimatedCount: 0
-      });
+      mockJiraClient.searchIssues.mockRejectedValue(new Error('Invalid JQL syntax near INVALID'));
 
       // This should fail if JQLQueryEngine is not implemented
       jqlQueryEngine = new JQLQueryEngine(mockJiraClient);
       
       const validationResult = await jqlQueryEngine.validateQuery(invalidQuery);
       
-      expect(validationResult.isValid).toBe(false);
-      expect(validationResult.errorMessage).toContain('Invalid JQL syntax');
-      expect(validationResult.estimatedCount).toBe(0);
+      expect(validationResult).toBe(false);
     });
 
     it('should handle network errors during sync with retry', async () => {
@@ -557,7 +561,11 @@ Login form not validating email format correctly
         jqlQueryEngine,
         config,
         async () => {
-          const result = await jqlQueryEngine.executeQuery(testJQLQuery, { maxResults: 1000 });
+          const result = await jqlQueryEngine.executeQuery({
+            jql: testJQLQuery,
+            maxResults: 1000,
+            batchSize: 50
+          });
           for (const issue of result.issues) {
             const content = await generateMarkdownContent(issue);
             await mockVault.create(`JIRA/${issue.key}.md`, content);
@@ -568,11 +576,15 @@ Login form not validating email format correctly
 
     it('✅ JQL query validates successfully', async () => {
       const result = await jqlQueryEngine.validateQuery(testJQLQuery);
-      expect(result.isValid).toBe(true);
+      expect(result).toBe(true);
     });
 
     it('✅ Test query returns expected ticket count', async () => {
-      const result = await jqlQueryEngine.executeQuery(testJQLQuery, { maxResults: 100 });
+      const result = await jqlQueryEngine.executeQuery({
+        jql: testJQLQuery,
+        maxResults: 100,
+        batchSize: 50
+      });
       expect(result.total).toBe(mockJiraIssues.length);
       expect(result.issues).toHaveLength(mockJiraIssues.length);
     });
@@ -729,7 +741,11 @@ Login form not validating email format correctly
         config,
         async () => {
           syncInProgress = true;
-          const result = await jqlQueryEngine.executeQuery(testJQLQuery, { maxResults: 1000 });
+          const result = await jqlQueryEngine.executeQuery({
+            jql: testJQLQuery,
+            maxResults: 1000,
+            batchSize: 50
+          });
           // Simulate some processing time
           await new Promise(resolve => setTimeout(resolve, 100));
           syncInProgress = false;

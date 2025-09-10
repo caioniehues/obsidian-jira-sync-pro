@@ -41,12 +41,16 @@ export class MockHTMLElement {
     return element;
   }
 
-  createDiv(attrs?: Record<string, string>, callback?: (el: MockHTMLElement) => void): MockHTMLElement {
-    return this.createEl('div', attrs, callback);
+  createDiv(attrs?: Record<string, string> | string, callback?: (el: MockHTMLElement) => void): MockHTMLElement {
+    // Handle case where first parameter is a class name string (Obsidian API style)
+    const normalizedAttrs = typeof attrs === 'string' ? { cls: attrs } : attrs;
+    return this.createEl('div', normalizedAttrs, callback);
   }
 
-  createSpan(attrs?: Record<string, string>, callback?: (el: MockHTMLElement) => void): MockHTMLElement {
-    return this.createEl('span', attrs, callback);
+  createSpan(attrs?: Record<string, string> | string, callback?: (el: MockHTMLElement) => void): MockHTMLElement {
+    // Handle case where first parameter is a class name string (Obsidian API style)
+    const normalizedAttrs = typeof attrs === 'string' ? { cls: attrs } : attrs;
+    return this.createEl('span', normalizedAttrs, callback);
   }
 
   appendChild(element: MockHTMLElement): MockHTMLElement {
@@ -167,6 +171,12 @@ export class MockHTMLElement {
   }
 }
 
+// Event Reference Mock
+export interface EventRef {
+  e: any;
+  f: Function;
+}
+
 // File System Mocks
 export abstract class TAbstractFile {
   path: string;
@@ -279,6 +289,7 @@ export class Workspace {
   leftSplit: any = null;
   rightSplit: any = null;
   rootSplit: any = null;
+  private eventHandlers: Map<string, Function[]> = new Map();
   
   getLeavesOfType(type: string): WorkspaceLeaf[] {
     return [];
@@ -300,24 +311,90 @@ export class Workspace {
     return null;
   }
 
-  getActiveViewOfType<T>(type: any): T | null {
-    return null;
-  }
-
   openLinkText(linkText: string, sourcePath: string) {
     return Promise.resolve();
   }
 
-  on(event: string, callback: Function): void {
-    // Mock event registration
+  on(event: string, callback: Function): EventRef {
+    if (!this.eventHandlers.has(event)) {
+      this.eventHandlers.set(event, []);
+    }
+    this.eventHandlers.get(event)!.push(callback);
+    
+    // Return EventRef mock
+    return {
+      e: this,
+      f: callback
+    } as EventRef;
   }
 
   off(event: string, callback: Function): void {
-    // Mock event deregistration
+    const handlers = this.eventHandlers.get(event);
+    if (handlers) {
+      const index = handlers.indexOf(callback);
+      if (index > -1) {
+        handlers.splice(index, 1);
+      }
+    }
+  }
+
+  offref(ref: EventRef): void {
+    if (ref.e === this && typeof ref.f === 'function') {
+      // Find and remove the callback
+      for (const [event, handlers] of this.eventHandlers.entries()) {
+        const index = handlers.indexOf(ref.f);
+        if (index > -1) {
+          handlers.splice(index, 1);
+          break;
+        }
+      }
+    }
   }
 
   trigger(event: string, ...args: any[]): void {
-    // Mock event triggering
+    const handlers = this.eventHandlers.get(event);
+    if (handlers) {
+      handlers.forEach(handler => {
+        try {
+          handler(...args);
+        } catch (error) {
+          console.error(`Error in event handler for ${event}:`, error);
+        }
+      });
+    }
+  }
+
+  // Additional workspace methods that might be needed
+  detachLeavesOfType(type: string): void {
+    // Mock implementation
+  }
+
+  createLeafBySplit(leaf: WorkspaceLeaf, direction?: 'horizontal' | 'vertical'): WorkspaceLeaf {
+    return new WorkspaceLeaf();
+  }
+
+  splitActiveLeaf(direction?: 'horizontal' | 'vertical'): WorkspaceLeaf {
+    return new WorkspaceLeaf();
+  }
+
+  duplicateLeaf(leaf: WorkspaceLeaf, direction?: 'horizontal' | 'vertical'): Promise<WorkspaceLeaf> {
+    return Promise.resolve(new WorkspaceLeaf());
+  }
+
+  getMostRecentLeaf(): WorkspaceLeaf | null {
+    return new WorkspaceLeaf();
+  }
+
+  getLeaf(newLeaf?: boolean): WorkspaceLeaf {
+    return new WorkspaceLeaf();
+  }
+
+  setActiveLeaf(leaf: WorkspaceLeaf, pushHistory?: boolean): void {
+    // Mock implementation
+  }
+
+  getActiveViewOfType<T>(type: { new(...args: any[]): T }): T | null {
+    return null;
   }
 }
 
@@ -632,6 +709,9 @@ export class Modal {
     this.modalEl.addClass('modal');
     this.titleEl = this.modalEl.createDiv('modal-title');
     this.contentEl = this.modalEl.createDiv('modal-content');
+    
+    // Ensure contentEl has all necessary methods for dashboard functionality
+    // This is critical for components that extend Modal and use contentEl extensively
   }
 
   open(): void {
@@ -821,6 +901,51 @@ export class ItemView extends View {
   async onClose(): Promise<void> {
     return Promise.resolve();
   }
+}
+
+// Helper function to create comprehensive mock elements for testing
+export function createMockElement(tagName: string = 'div'): MockHTMLElement {
+  return new MockHTMLElement(tagName);
+}
+
+// Helper function to create a comprehensive mock for any DOM container
+export function createComprehensiveMock(): Record<string, any> {
+  const element = new MockHTMLElement('div');
+  return {
+    empty: element.empty.bind(element),
+    addClass: element.addClass.bind(element),
+    removeClass: element.removeClass.bind(element),
+    hasClass: element.hasClass.bind(element),
+    toggleClass: element.toggleClass.bind(element),
+    createEl: element.createEl.bind(element),
+    createDiv: element.createDiv.bind(element),
+    createSpan: element.createSpan.bind(element),
+    appendChild: element.appendChild.bind(element),
+    removeChild: element.removeChild.bind(element),
+    setAttribute: element.setAttribute.bind(element),
+    getAttribute: element.getAttribute.bind(element),
+    removeAttribute: element.removeAttribute.bind(element),
+    addEventListener: element.addEventListener.bind(element),
+    removeEventListener: element.removeEventListener.bind(element),
+    click: element.click.bind(element),
+    focus: element.focus.bind(element),
+    blur: element.blur.bind(element),
+    querySelector: element.querySelector.bind(element),
+    querySelectorAll: element.querySelectorAll.bind(element),
+    getElementById: element.getElementById.bind(element),
+    getElementsByClassName: element.getElementsByClassName.bind(element),
+    show: element.show.bind(element),
+    hide: element.hide.bind(element),
+    style: element.style,
+    className: element.className,
+    textContent: element.textContent,
+    innerHTML: element.innerHTML,
+    children: element.children,
+    parentElement: element.parentElement,
+    attributes: element.attributes,
+    dataset: element.dataset,
+    tagName: element.tagName
+  };
 }
 
 // Export default Document mock for DOM manipulation
