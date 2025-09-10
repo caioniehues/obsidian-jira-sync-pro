@@ -12,7 +12,9 @@
     "test:coverage": "jest --coverage",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
-    "clean": "rm -rf dist .turbo node_modules/.cache"
+    "clean": "rm -rf dist .turbo node_modules/.cache",
+    "setup": "./dev-tools.sh",
+    "quick": "npm run build && echo '✅ Plugin updated! Reload Obsidian to see changes (Cmd+R).'"
   },
   "keywords": [
     "obsidian",

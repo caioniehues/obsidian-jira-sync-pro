@@ -101,11 +101,12 @@ export default class JiraSyncProPlugin extends Plugin {
 
   private initializeJiraComponents() {
     // Initialize Jira client
-    this.jiraClient = new JiraClient(
-      this.settings.jiraUrl,
-      this.settings.jiraUsername,
-      this.settings.jiraApiToken
-    );
+    this.jiraClient = new JiraClient();
+    this.jiraClient.configure({
+      baseUrl: this.settings.jiraUrl,
+      email: this.settings.jiraUsername,
+      apiToken: this.settings.jiraApiToken
+    });
 
     // Initialize query engine
     this.queryEngine = new JQLQueryEngine(this.jiraClient);

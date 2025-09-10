@@ -81,7 +81,7 @@ export class JiraClient {
     }
 
     // Prepare request
-    const url = `${this.config.baseUrl}/rest/api/3/search?${queryParams.toString()}`;
+    const url = `${this.config.baseUrl}/rest/api/3/search/jql?${queryParams.toString()}`;
     const headers = this.getAuthHeaders();
 
     try {
