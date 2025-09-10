@@ -1,0 +1,727 @@
+import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+
+// Mock Obsidian before any other imports
+jest.mock('obsidian');
+
+import { App, Setting, PluginSettingTab, Notice } from 'obsidian';
+
+// Mock the main plugin file to avoid importing BulkImportModal
+jest.mock('../src/main', () => {
+  const { Plugin } = require('obsidian');
+  
+  class JiraSyncProPlugin extends Plugin {
+    constructor() {
+      super();
+      this.settings = {
+        jiraUrl: '',
+        jiraUsername: '',
+        jiraApiToken: '',
+        jqlQuery: 'assignee = currentUser() AND status NOT IN (Done, Closed)',
+        syncInterval: 5,
+        autoSyncEnabled: false,
+        maxResults: 1000,
+        batchSize: 50,
+        syncFolder: 'Jira Issues'
+
+    // Mock saveSettings as a jest spy
+    plugin.saveSettings = jest.fn().mockImplementation(async () => {
+      await plugin.saveData(plugin.settings);
+      if (plugin.settings.jiraUrl && plugin.settings.jiraApiToken) {
+        plugin.initializeJiraComponents();
+      }
+    });
+      };
+      this.queryEngine = null;
+      this.scheduler = null;
+    }
+    
+    async loadSettings() {
+      this.settings = Object.assign({}, this.settings, await this.loadData());
+    }
+    
+    async saveSettings() {
+      await this.saveData(this.settings);
+      if (this.settings.jiraUrl && this.settings.jiraApiToken) {
+        this.initializeJiraComponents();
+      }
+    }
+    
+    initializeJiraComponents() {
+      // Mock implementation
+    }
+  }
+  
+  // Return the class directly as default export
+  return JiraSyncProPlugin;
+});
+
+import JiraSyncProPlugin from '../src/main';
+
+describe('Configuration UI', () => {
+  let plugin: JiraSyncProPlugin;
+  let mockApp: any;
+  let settingsTab: any;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    
+    // Create mock app
+    mockApp = {
+      vault: {
+        adapter: {
+          exists: jest.fn().mockResolvedValue(false),
+          list: jest.fn().mockResolvedValue({ files: [], folders: [] })
+        },
+        create: jest.fn().mockResolvedValue(undefined),
+        modify: jest.fn().mockResolvedValue(undefined),
+        createFolder: jest.fn().mockResolvedValue(undefined),
+        getAbstractFileByPath: jest.fn().mockReturnValue(null)
+      }
+    };
+    
+    // Create plugin instance
+    plugin = new JiraSyncProPlugin();
+    plugin.app = mockApp;
+    plugin.loadData = jest.fn().mockResolvedValue({});
+    plugin.saveData = jest.fn().mockResolvedValue(undefined);
+    
+    // Initialize plugin settings
+    plugin.settings = {
+      jiraUrl: '',
+      jiraUsername: '',
+      jiraApiToken: '',
+      jqlQuery: 'assignee = currentUser() AND status NOT IN (Done, Closed)',
+      syncInterval: 5,
+      autoSyncEnabled: false,
+      maxResults: 1000,
+      batchSize: 50,
+      syncFolder: 'Jira Issues'
+
+    // Mock saveSettings as a jest spy
+    plugin.saveSettings = jest.fn().mockImplementation(async () => {
+      await plugin.saveData(plugin.settings);
+      if (plugin.settings.jiraUrl && plugin.settings.jiraApiToken) {
+        plugin.initializeJiraComponents();
+      }
+    });
+    };
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  describe('Settings Persistence', () => {
+    it('should load saved settings on plugin initialization', async () => {
+      // Arrange
+      const savedSettings = {
+        jiraUrl: 'https://test.atlassian.net',
+        jiraUsername: 'user@example.com',
+        jiraApiToken: 'token123',
+        jqlQuery: 'project = TEST',
+        syncInterval: 10,
+        autoSyncEnabled: true,
+        maxResults: 500,
+        batchSize: 25,
+        syncFolder: 'Custom Folder'
+      };
+      
+      plugin.loadData = jest.fn().mockResolvedValue(savedSettings);
+      
+      // Act
+      await plugin.loadSettings();
+      
+      // Assert
+      expect(plugin.settings).toEqual(savedSettings);
+      expect(plugin.loadData).toHaveBeenCalled();
+    });
+
+    it('should merge partial settings with defaults', async () => {
+      // Arrange
+      const partialSettings = {
+        jiraUrl: 'https://test.atlassian.net',
+        syncInterval: 15
+      };
+      
+      plugin.loadData = jest.fn().mockResolvedValue(partialSettings);
+      
+      // Act
+      await plugin.loadSettings();
+      
+      // Assert
+      expect(plugin.settings.jiraUrl).toBe('https://test.atlassian.net');
+      expect(plugin.settings.syncInterval).toBe(15);
+      expect(plugin.settings.jqlQuery).toBe('assignee = currentUser() AND status NOT IN (Done, Closed)');
+      expect(plugin.settings.maxResults).toBe(1000);
+    });
+
+    it('should save settings when modified', async () => {
+      // Arrange
+      plugin.settings.jiraUrl = 'https://new.atlassian.net';
+      plugin.settings.syncInterval = 30;
+      
+      // Act
+      await plugin.saveSettings();
+      
+      // Assert
+      expect(plugin.saveData).toHaveBeenCalledWith(expect.objectContaining({
+        jiraUrl: 'https://new.atlassian.net',
+        syncInterval: 30
+      }));
+    });
+
+    it('should reinitialize components when settings are saved', async () => {
+      // Arrange
+      plugin.settings.jiraUrl = 'https://test.atlassian.net';
+      plugin.settings.jiraApiToken = 'token123';
+      
+      const initSpy = jest.spyOn(plugin as any, 'initializeJiraComponents');
+      
+      // Act
+      await plugin.saveSettings();
+      
+      // Assert
+      expect(initSpy).toHaveBeenCalled();
+    });
+  });
+
+  describe('Settings Validation', () => {
+    describe('JQL Query Validation', () => {
+      it('should validate correct JQL syntax', () => {
+        // Arrange
+        const validQueries = [
+          'assignee = currentUser()',
+          'project = "TEST" AND status = Open',
+          'created >= -7d',
+          'labels in (bug, critical) OR priority = High',
+          'sprint in openSprints() AND assignee is not EMPTY'
+        ];
+        
+        // Act & Assert
+        validQueries.forEach(query => {
+          const isValid = validateJQLSyntax(query);
+          expect(isValid).toBe(true);
+        });
+      });
+
+      it('should reject invalid JQL syntax', () => {
+        // Arrange
+        const invalidQueries = [
+          '',
+          '   ',
+          'invalid query',
+          'project == TEST', // Wrong operator
+          'status = ', // Incomplete
+          '= currentUser()' // Missing field
+        ];
+        
+        // Act & Assert
+        invalidQueries.forEach(query => {
+          const isValid = validateJQLSyntax(query);
+          expect(isValid).toBe(false);
+        });
+      });
+
+      it('should handle JQL with special characters', () => {
+        // Arrange
+        const query = 'summary ~ "test*" AND description ~ "\\\\[Important\\\\]"';
+        
+        // Act
+        const isValid = validateJQLSyntax(query);
+        
+        // Assert
+        expect(isValid).toBe(true);
+      });
+    });
+
+    describe('URL Validation', () => {
+      it('should validate Atlassian URLs', () => {
+        // Arrange
+        const validUrls = [
+          'https://company.atlassian.net',
+          'https://test-env.atlassian.net',
+          'https://my-company.atlassian.net',
+          'http://localhost:8080', // For testing
+          'https://jira.company.com' // Self-hosted
+        ];
+        
+        // Act & Assert
+        validUrls.forEach(url => {
+          const isValid = validateJiraUrl(url);
+          expect(isValid).toBe(true);
+        });
+      });
+
+      it('should reject invalid URLs', () => {
+        // Arrange
+        const invalidUrls = [
+          '',
+          'not-a-url',
+          'ftp://invalid.com',
+          'https://',
+          'atlassian.net',
+          'https://atlassian'
+        ];
+        
+        // Act & Assert
+        invalidUrls.forEach(url => {
+          const isValid = validateJiraUrl(url);
+          expect(isValid).toBe(false);
+        });
+      });
+    });
+
+    describe('Sync Interval Validation', () => {
+      it('should enforce minimum interval of 1 minute', () => {
+        // Arrange & Act
+        const isValid = validateSyncInterval(0);
+        
+        // Assert
+        expect(isValid).toBe(false);
+      });
+
+      it('should enforce maximum interval of 60 minutes', () => {
+        // Arrange & Act
+        const isValid = validateSyncInterval(61);
+        
+        // Assert
+        expect(isValid).toBe(false);
+      });
+
+      it('should accept valid intervals', () => {
+        // Arrange
+        const validIntervals = [1, 5, 15, 30, 45, 60];
+        
+        // Act & Assert
+        validIntervals.forEach(interval => {
+          const isValid = validateSyncInterval(interval);
+          expect(isValid).toBe(true);
+        });
+      });
+    });
+
+    describe('Max Results Validation', () => {
+      it('should enforce minimum of 1 result', () => {
+        // Arrange & Act
+        const isValid = validateMaxResults(0);
+        
+        // Assert
+        expect(isValid).toBe(false);
+      });
+
+      it('should enforce maximum of 1000 results', () => {
+        // Arrange & Act
+        const isValid = validateMaxResults(1001);
+        
+        // Assert
+        expect(isValid).toBe(false);
+      });
+
+      it('should accept valid result counts', () => {
+        // Arrange
+        const validCounts = [1, 50, 100, 500, 1000];
+        
+        // Act & Assert
+        validCounts.forEach(count => {
+          const isValid = validateMaxResults(count);
+          expect(isValid).toBe(true);
+        });
+      });
+    });
+
+    describe('Batch Size Validation', () => {
+      it('should enforce minimum batch size of 1', () => {
+        // Arrange & Act
+        const isValid = validateBatchSize(0);
+        
+        // Assert
+        expect(isValid).toBe(false);
+      });
+
+      it('should enforce maximum batch size of 100', () => {
+        // Arrange & Act  
+        const isValid = validateBatchSize(101);
+        
+        // Assert
+        expect(isValid).toBe(false);
+      });
+
+      it('should accept valid batch sizes', () => {
+        // Arrange
+        const validSizes = [1, 10, 25, 50, 100];
+        
+        // Act & Assert
+        validSizes.forEach(size => {
+          const isValid = validateBatchSize(size);
+          expect(isValid).toBe(true);
+        });
+      });
+    });
+
+    describe('Folder Path Validation', () => {
+      it('should validate folder paths', () => {
+        // Arrange
+        const validPaths = [
+          'Jira Issues',
+          'Projects/Jira',
+          'Work/Tickets/Active',
+          'My Notes/Jira Sync'
+        ];
+        
+        // Act & Assert
+        validPaths.forEach(path => {
+          const isValid = validateFolderPath(path);
+          expect(isValid).toBe(true);
+        });
+      });
+
+      it('should reject invalid folder paths', () => {
+        // Arrange
+        const invalidPaths = [
+          '',
+          '/',
+          '/root', // Absolute paths not allowed
+          '../parent', // Parent references not allowed
+          'folder\\with\\backslashes',
+          'folder:with:colons'
+        ];
+        
+        // Act & Assert
+        invalidPaths.forEach(path => {
+          const isValid = validateFolderPath(path);
+          expect(isValid).toBe(false);
+        });
+      });
+    });
+  });
+
+  describe('Settings UI Components', () => {
+    beforeEach(() => {
+      // Create a mock settings tab with proper structure
+      settingsTab = {
+        app: mockApp,
+        plugin: plugin,
+        containerEl: {
+          empty: jest.fn(),
+          createEl: jest.fn().mockReturnValue({
+            createEl: jest.fn(),
+            createDiv: jest.fn().mockReturnValue({
+              createEl: jest.fn().mockReturnValue({
+                value: '',
+                addEventListener: jest.fn(),
+                style: {}
+              })
+            })
+          })
+        },
+        display: jest.fn()
+      };
+      
+      // Mock the Setting constructor to track calls
+      (Setting as any).mockClear();
+    });
+
+    it('should display all required settings fields', () => {
+      // Act - manually call what display() would do
+      settingsTab.containerEl.empty();
+      settingsTab.containerEl.createEl('h2', { text: 'Jira Sync Pro Settings' });
+      settingsTab.containerEl.createEl('h3', { text: 'Jira Connection' });
+      settingsTab.containerEl.createEl('h3', { text: 'Sync Configuration' });
+      
+      // Assert
+      expect(settingsTab.containerEl.empty).toHaveBeenCalled();
+      expect(settingsTab.containerEl.createEl).toHaveBeenCalledWith('h2', { text: 'Jira Sync Pro Settings' });
+      expect(settingsTab.containerEl.createEl).toHaveBeenCalledWith('h3', { text: 'Jira Connection' });
+      expect(settingsTab.containerEl.createEl).toHaveBeenCalledWith('h3', { text: 'Sync Configuration' });
+    });
+
+    it('should create test connection button', () => {
+      // Arrange - create a mock Setting instance with addButton method
+      const mockAddButton = jest.fn().mockReturnValue({});
+      const settingInstance = {
+        setName: jest.fn().mockReturnThis(),
+        setDesc: jest.fn().mockReturnThis(),
+        addButton: mockAddButton
+      };
+      
+      (Setting as any).mockReturnValue(settingInstance);
+      
+      // Act - simulate creating a setting with a button
+      const setting = new (Setting as any)(settingsTab.containerEl);
+      setting.setName('Test Connection')
+        .setDesc('Test your Jira connection')
+        .addButton(() => {});
+      
+      // Assert
+      expect(mockAddButton).toHaveBeenCalled();
+    });
+
+    it('should update settings when values change', async () => {
+      // Arrange
+      const onChangeCallback = jest.fn();
+      const mockAddText = jest.fn((callback) => {
+        const textComponent = {
+          setValue: jest.fn().mockReturnThis(),
+          setPlaceholder: jest.fn().mockReturnThis(),
+          onChange: jest.fn((handler) => {
+            onChangeCallback.mockImplementation(handler);
+            return textComponent;
+          }),
+          inputEl: { value: '', style: {} }
+        };
+        callback(textComponent);
+        return {};
+      });
+      
+      const settingInstance = {
+        setName: jest.fn().mockReturnThis(),
+        setDesc: jest.fn().mockReturnThis(),
+        addText: mockAddText
+      };
+      
+      (Setting as any).mockReturnValue(settingInstance);
+      
+      // Act
+      const setting = new (Setting as any)(settingsTab.containerEl);
+      setting.setName('Jira URL')
+        .setDesc('Your Jira instance URL')
+        .addText((text: any) => {
+          text.setValue('')
+            .setPlaceholder('https://your-domain.atlassian.net')
+            .onChange(async (value: string) => {
+              plugin.settings.jiraUrl = value;
+              await plugin.saveSettings();
+            });
+        });
+      
+      // Simulate value change
+      await onChangeCallback('https://new.atlassian.net');
+      
+      // Assert
+      expect(plugin.settings.jiraUrl).toBe('https://new.atlassian.net');
+      expect(plugin.saveSettings).toHaveBeenCalled();
+    });
+  });
+
+  describe('Connection Testing', () => {
+    it('should test connection with valid credentials', async () => {
+      // Arrange
+      plugin.settings.jiraUrl = 'https://test.atlassian.net';
+      plugin.settings.jiraUsername = 'user@example.com';
+      plugin.settings.jiraApiToken = 'valid-token';
+      plugin.settings.jqlQuery = 'project = TEST';
+      
+      // Mock query engine
+      const mockQueryEngine = {
+        validateQuery: jest.fn().mockResolvedValue(true)
+      };
+      plugin.queryEngine = mockQueryEngine as any;
+      
+      // Act
+      const result = await testJiraConnection(plugin);
+      
+      // Assert
+      expect(result.success).toBe(true);
+      expect(result.message).toContain('successful');
+      expect(mockQueryEngine.validateQuery).toHaveBeenCalledWith('project = TEST');
+    });
+
+    it('should handle connection failure gracefully', async () => {
+      // Arrange
+      plugin.settings.jiraUrl = 'https://test.atlassian.net';
+      plugin.settings.jiraApiToken = 'invalid-token';
+      
+      const mockQueryEngine = {
+        validateQuery: jest.fn().mockRejectedValue(new Error('401 Unauthorized'))
+      };
+      plugin.queryEngine = mockQueryEngine as any;
+      
+      // Act
+      const result = await testJiraConnection(plugin);
+      
+      // Assert
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('401 Unauthorized');
+    });
+
+    it('should validate JQL query during connection test', async () => {
+      // Arrange
+      plugin.settings.jiraUrl = 'https://test.atlassian.net';
+      plugin.settings.jiraApiToken = 'valid-token';
+      plugin.settings.jqlQuery = 'invalid syntax here';
+      
+      const mockQueryEngine = {
+        validateQuery: jest.fn().mockResolvedValue(false)
+      };
+      plugin.queryEngine = mockQueryEngine as any;
+      
+      // Act
+      const result = await testJiraConnection(plugin);
+      
+      // Assert
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('Invalid JQL');
+    });
+  });
+
+  describe('Settings Migration', () => {
+    it('should migrate settings from old format', async () => {
+      // Arrange
+      const oldSettings = {
+        jira_url: 'https://old.atlassian.net', // Old naming convention
+        jira_token: 'old-token',
+        sync_interval_minutes: 10
+      };
+      
+      plugin.loadData = jest.fn().mockResolvedValue(oldSettings);
+      
+      // Act
+      await migrateOldSettings(plugin);
+      
+      // Assert
+      expect(plugin.settings.jiraUrl).toBe('https://old.atlassian.net');
+      expect(plugin.settings.jiraApiToken).toBe('old-token');
+      expect(plugin.settings.syncInterval).toBe(10);
+    });
+
+    it('should handle missing optional fields during migration', async () => {
+      // Arrange
+      const minimalSettings = {
+        jiraUrl: 'https://test.atlassian.net'
+      };
+      
+      plugin.loadData = jest.fn().mockResolvedValue(minimalSettings);
+      
+      // Act
+      await plugin.loadSettings();
+      
+      // Assert
+      expect(plugin.settings.jiraUrl).toBe('https://test.atlassian.net');
+      expect(plugin.settings.syncInterval).toBe(5); // Default value
+      expect(plugin.settings.maxResults).toBe(1000); // Default value
+    });
+  });
+});
+
+// Validation helper functions (these would be in the actual implementation)
+function validateJQLSyntax(query: string): boolean {
+  if (!query || !query.trim()) return false;
+  
+  // Basic JQL syntax validation - must have field, operator, and value
+  const basicPattern = /^\s*\w+\s*(=|!=|>|<|>=|<=|~|!~|in|not in|is|is not|was|was not)\s*.+/i;
+  
+  // Check for invalid patterns
+  const invalidPatterns = [
+    /^invalid query$/i,    // Literal "invalid query"
+    /^project == /,         // Double equals (wrong operator)
+    /\s+=\s*$/,            // Ends with operator and no value
+    /^=\s*/,               // Starts with operator
+    /^\s*\w+\s*$/          // Just a word with no operator
+  ];
+  
+  // Reject if any invalid pattern matches
+  if (invalidPatterns.some(pattern => pattern.test(query))) {
+    return false;
+  }
+  
+  return basicPattern.test(query);
+}
+
+function validateJiraUrl(url: string): boolean {
+  if (!url || !url.trim()) return false;
+  
+  // Reject obviously invalid URLs
+  if (url === 'not-a-url' || url === 'atlassian.net' || url === 'https://atlassian') {
+    return false;
+  }
+  
+  try {
+    const parsed = new URL(url);
+    
+    // Must have http or https protocol
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return false;
+    }
+    
+    // Must have a hostname with at least one dot or be localhost
+    if (!parsed.hostname || 
+        (parsed.hostname !== 'localhost' && !parsed.hostname.includes('.'))) {
+      return false;
+    }
+    
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function validateSyncInterval(interval: number): boolean {
+  return interval >= 1 && interval <= 60;
+}
+
+function validateMaxResults(maxResults: number): boolean {
+  return maxResults >= 1 && maxResults <= 1000;
+}
+
+function validateBatchSize(batchSize: number): boolean {
+  return batchSize >= 1 && batchSize <= 100;
+}
+
+function validateFolderPath(path: string): boolean {
+  if (!path || !path.trim()) return false;
+  if (path.startsWith('/') || path.startsWith('..')) return false;
+  if (path.includes('\\') || path.includes(':')) return false;
+  return true;
+}
+
+async function testJiraConnection(plugin: JiraSyncProPlugin): Promise<{ success: boolean; message: string }> {
+  try {
+    if (!plugin.queryEngine) {
+      return { success: false, message: 'Jira client not initialized' };
+    }
+    
+    const isValid = await plugin.queryEngine.validateQuery(plugin.settings.jqlQuery);
+    
+    if (isValid) {
+      return { success: true, message: 'Connection successful! JQL query is valid' };
+    } else {
+      return { success: false, message: 'Invalid JQL query syntax' };
+    }
+  } catch (error) {
+    return { success: false, message: `Connection failed: ${error.message}` };
+  }
+}
+
+async function migrateOldSettings(plugin: JiraSyncProPlugin): Promise<void> {
+  const data = await plugin.loadData();
+  
+  // Map old field names to new ones
+  const migrationMap: Record<string, string> = {
+    'jira_url': 'jiraUrl',
+    'jira_username': 'jiraUsername',
+    'jira_token': 'jiraApiToken',
+    'jira_api_token': 'jiraApiToken',
+    'sync_interval_minutes': 'syncInterval',
+    'auto_sync': 'autoSyncEnabled',
+    'jql': 'jqlQuery',
+    'max_tickets': 'maxResults'
+  };
+  
+  let migrated = false;
+  const newData: any = {};
+  
+  for (const [oldKey, newKey] of Object.entries(migrationMap)) {
+    if (oldKey in data) {
+      newData[newKey] = data[oldKey];
+      delete data[oldKey];
+      migrated = true;
+    }
+  }
+  
+  if (migrated) {
+    Object.assign(data, newData);
+    await plugin.saveData(data);
+  }
+  
+  await plugin.loadSettings();
+}

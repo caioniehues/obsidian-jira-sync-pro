@@ -1,0 +1,10 @@
+{
+  "id": "obsidian-jira-sync-pro",
+  "name": "Jira Sync Pro",
+  "version": "1.0.0",
+  "minAppVersion": "1.4.0",
+  "description": "Enhanced Jira synchronization with JQL-based auto-sync, bulk import, and real-time updates",
+  "author": "Caio Niehues",
+  "authorUrl": "https://github.com/caioniehues",
+  "isDesktopOnly": false
+}
