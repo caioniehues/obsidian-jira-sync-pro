@@ -416,13 +416,13 @@ describe('JQLQueryEngine', () => {
         expect(result.truncated).toBe(false);
         expect(mockJiraClient.searchIssues).toHaveBeenCalledTimes(3);
         
-        // Verify API calls with correct pagination parameters
+        // Verify API calls with correct pagination parameters (NEW: token-based)
         expect(mockJiraClient.searchIssues).toHaveBeenNthCalledWith(1, 
-          expect.objectContaining({ startAt: 0, maxResults: batchSize }));
+          expect.objectContaining({ nextPageToken: undefined, maxResults: batchSize }));
         expect(mockJiraClient.searchIssues).toHaveBeenNthCalledWith(2, 
-          expect.objectContaining({ startAt: 50, maxResults: batchSize }));
+          expect.objectContaining({ nextPageToken: expect.any(String), maxResults: batchSize }));
         expect(mockJiraClient.searchIssues).toHaveBeenNthCalledWith(3, 
-          expect.objectContaining({ startAt: 100, maxResults: batchSize }));
+          expect.objectContaining({ nextPageToken: expect.any(String), maxResults: batchSize }));
 
         // Verify progress callbacks
         const calls = progressCallback.getCalls();

@@ -1,25 +1,82 @@
 import { requestUrl, RequestUrlParam, RequestUrlResponse } from 'obsidian';
 
 /**
+ * Token bucket rate limiter for API requests
+ */
+class TokenBucket {
+  private tokens: number;
+  private lastRefill: number;
+  
+  constructor(
+    private maxTokens: number,
+    private refillRate: number // tokens per millisecond
+  ) {
+    this.tokens = maxTokens;
+    this.lastRefill = Date.now();
+  }
+  
+  /**
+   * Attempts to consume tokens from the bucket
+   * Returns true if successful, false if not enough tokens
+   */
+  tryConsume(tokensToConsume: number = 1): boolean {
+    this.refill();
+    
+    if (this.tokens >= tokensToConsume) {
+      this.tokens -= tokensToConsume;
+      return true;
+    }
+    
+    return false;
+  }
+  
+  /**
+   * Gets the time to wait before the next token is available
+   */
+  getWaitTime(): number {
+    this.refill();
+    if (this.tokens >= 1) return 0;
+    
+    return Math.ceil((1 - this.tokens) / this.refillRate);
+  }
+  
+  private refill(): void {
+    const now = Date.now();
+    const timePassed = now - this.lastRefill;
+    const tokensToAdd = timePassed * this.refillRate;
+    
+    this.tokens = Math.min(this.maxTokens, this.tokens + tokensToAdd);
+    this.lastRefill = now;
+  }
+}
+
+/**
  * Search parameters for Jira API
+ * Updated for new /rest/api/3/search/jql endpoint with token-based pagination
  */
 export interface SearchParams {
   jql: string;
-  startAt?: number;
+  startAt?: number; // DEPRECATED: Use nextPageToken for new API
   maxResults?: number;
   fields?: string[];
   expand?: string[];
   validateQuery?: boolean;
+  // NEW: Token-based pagination
+  nextPageToken?: string;
 }
 
 /**
  * Jira search response
+ * Updated for new /rest/api/3/search/jql endpoint with token-based pagination
  */
 export interface SearchResponse {
-  startAt: number;
+  startAt: number; // Always 0 in new API
   maxResults: number;
   total: number;
   issues: any[];
+  // NEW: Token-based pagination
+  nextPageToken?: string;
+  isLast?: boolean; // Indicates if this is the last page
 }
 
 /**
@@ -36,6 +93,13 @@ export interface JiraClientConfig {
  */
 export class JiraClient {
   private config: JiraClientConfig | null = null;
+  private rateLimiter: TokenBucket;
+  
+  constructor() {
+    // Rate limit: 20 requests per minute (60000ms) = 1 request per 3000ms
+    // Allow burst of 5 requests, but be conservative with new API
+    this.rateLimiter = new TokenBucket(3, 1 / 3000); // 1 token per 3 seconds, reduced burst
+  }
   
   /**
    * Initializes the Jira client with configuration
@@ -45,57 +109,80 @@ export class JiraClient {
   }
 
   /**
-   * Searches for issues using JQL
+   * Searches for issues using JQL with new API endpoint and token-based pagination
    */
   async searchIssues(params: SearchParams): Promise<SearchResponse> {
     if (!this.config) {
       throw new Error('JiraClient not configured');
     }
 
+    // Rate limiting
+    await this.waitForRateLimit();
+
     const {
       jql,
-      startAt = 0,
+      startAt = 0, // DEPRECATED: kept for backwards compatibility
       maxResults = 50,
       fields = [],
       expand = [],
-      validateQuery = false
+      validateQuery = false,
+      nextPageToken // NEW: Token-based pagination
     } = params;
 
-    // Build query parameters
-    const queryParams = new URLSearchParams({
-      jql,
-      startAt: startAt.toString(),
-      maxResults: maxResults.toString()
-    });
+    // For validation queries, use minimal maxResults
+    const actualMaxResults = validateQuery ? 1 : maxResults;
 
-    if (fields.length > 0) {
-      queryParams.append('fields', fields.join(','));
+    // Build request body for POST request (NEW API CONTRACT)
+    const requestBody: any = {
+      jql,
+      maxResults: actualMaxResults
+    };
+
+    // Only include fields if specified and not empty
+    if (fields && fields.length > 0) {
+      requestBody.fields = fields;
     }
 
-    if (expand.length > 0) {
-      queryParams.append('expand', expand.join(','));
+    if (expand && expand.length > 0) {
+      requestBody.expand = expand;
     }
 
     if (validateQuery) {
-      queryParams.append('validateQuery', 'true');
+      requestBody.validateQuery = validateQuery;
     }
 
-    // Prepare request
-    const url = `${this.config.baseUrl}/rest/api/3/search/jql?${queryParams.toString()}`;
+    // NEW: Token-based pagination
+    if (nextPageToken) {
+      requestBody.nextPageToken = nextPageToken;
+    }
+
+    // NEW: Use POST method with /search/jql endpoint
+    const url = `${this.config.baseUrl}/rest/api/3/search/jql`;
     const headers = this.getAuthHeaders();
 
     try {
-      // Execute request using Obsidian's requestUrl
+      // Execute request using POST method (NEW API CONTRACT)
       const response = await requestUrl({
         url,
-        method: 'GET',
+        method: 'POST',
         headers,
+        body: JSON.stringify(requestBody),
         throw: false
       });
 
       // Handle response
       if (response.status >= 200 && response.status < 300) {
-        return response.json;
+        const result = response.json;
+        
+        // NEW: Always set startAt to 0 for new API compatibility
+        result.startAt = 0;
+        
+        // NEW: Add isLast property based on nextPageToken presence
+        if (result.nextPageToken === undefined) {
+          result.isLast = true;
+        }
+        
+        return result;
       } else {
         throw this.handleApiError(response);
       }
@@ -111,6 +198,25 @@ export class JiraClient {
         originalError: error
       };
     }
+  }
+
+  /**
+   * Wait for rate limit to allow next request
+   */
+  private async waitForRateLimit(): Promise<void> {
+    while (!this.rateLimiter.tryConsume()) {
+      const waitTime = this.rateLimiter.getWaitTime();
+      if (waitTime > 0) {
+        await this.sleep(waitTime);
+      }
+    }
+  }
+
+  /**
+   * Sleep utility for rate limiting
+   */
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   /**
@@ -198,9 +304,9 @@ export class JiraClient {
 
     // Try to extract error details from response body
     try {
-      if (response.json && response.json.errorMessages) {
+      if (response.json && response.json.errorMessages && response.json.errorMessages.length > 0) {
         error.message = response.json.errorMessages.join(', ');
-      } else if (response.json && response.json.errors) {
+      } else if (response.json && response.json.errors && Object.keys(response.json.errors).length > 0) {
         error.message = Object.values(response.json.errors).join(', ');
       }
     } catch (e) {

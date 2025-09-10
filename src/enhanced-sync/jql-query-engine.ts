@@ -2,6 +2,7 @@ import { JiraClient } from '../jira-bases-adapter/jira-client';
 
 /**
  * Configuration options for executing a JQL query
+ * Updated for token-based pagination support
  */
 export interface JQLQueryOptions {
   jql: string;
@@ -11,16 +12,24 @@ export interface JQLQueryOptions {
   onProgress?: (current: number, total: number, phase: QueryPhase) => void;
   enableRetry?: boolean;
   signal?: AbortSignal;
+  // NEW: Token-based pagination support
+  nextPageToken?: string;
+  pageToken?: string; // Alternative name for nextPageToken (for test compatibility)
 }
 
 /**
  * Result of a JQL query execution
+ * Updated for token-based pagination support
  */
 export interface JQLQueryResult {
   issues: JiraIssue[];
   total: number;
   truncated?: boolean;
   errors?: QueryError[];
+  // NEW: Token-based pagination
+  nextPageToken?: string;
+  isLast?: boolean;
+  executionTime?: number;
 }
 
 /**
@@ -28,6 +37,8 @@ export interface JQLQueryResult {
  */
 export interface JiraIssue {
   key: string;
+  id?: string; // NEW: Added id field for new API response
+  self?: string; // NEW: Added self field for new API response
   fields: {
     summary?: string;
     status?: any;
@@ -38,6 +49,7 @@ export interface JiraIssue {
     description?: string;
     issuetype?: any;
     project?: any;
+    reporter?: any;
     [key: string]: any;
   };
 }
@@ -54,6 +66,15 @@ export interface QueryError {
   message: string;
   code?: string;
   retryable?: boolean;
+}
+
+/**
+ * Result of JQL query validation
+ */
+export interface JQLValidationResult {
+  isValid: boolean;
+  errorMessage?: string | null;
+  estimatedCount?: number;
 }
 
 /**
@@ -82,7 +103,7 @@ export class JQLQueryEngine {
   }
 
   /**
-   * Validates a JQL query syntax without executing it
+   * Validates a JQL query syntax and returns validation result
    */
   async validateQuery(jql: string): Promise<boolean> {
     // Check for empty query
@@ -91,22 +112,24 @@ export class JQLQueryEngine {
     }
 
     try {
-      // Use Jira's validation endpoint
+      // Use Jira's validation endpoint with minimal results to test syntax
       await this.jiraClient.searchIssues({
         jql,
-        maxResults: 0,
+        maxResults: 0, // No results needed for validation
         validateQuery: true
       });
+      
       return true;
-    } catch (error) {
+    } catch (error: any) {
       return false;
     }
   }
 
   /**
-   * Executes a JQL query with pagination support
+   * Executes a JQL query with token-based pagination support
    */
   async executeQuery(options: JQLQueryOptions): Promise<JQLQueryResult> {
+    const startTime = Date.now();
     const {
       jql,
       maxResults,
@@ -114,12 +137,22 @@ export class JQLQueryEngine {
       fields = DEFAULT_FIELDS,
       onProgress,
       enableRetry = false,
-      signal
+      signal,
+      nextPageToken, // NEW: Token-based pagination
+      pageToken // Alternative name for nextPageToken (for test compatibility)
     } = options;
 
     // Validate inputs
     if (!jql || jql.trim().length === 0) {
       throw new Error('JQL query cannot be empty');
+    }
+    
+    if (maxResults <= 0) {
+      throw new Error('maxResults must be greater than 0');
+    }
+    
+    if (batchSize <= 0) {
+      throw new Error('batchSize must be greater than 0');
     }
 
     const result: JQLQueryResult = {
@@ -129,7 +162,7 @@ export class JQLQueryEngine {
       errors: []
     };
 
-    let startAt = 0;
+    let currentPageToken = nextPageToken || pageToken; // NEW: Use token instead of startAt
     let hasMore = true;
     let firstRequest = true;
     let totalIssues = 0;
@@ -147,13 +180,13 @@ export class JQLQueryEngine {
         const remainingCapacity = maxResults - result.issues.length;
         const currentBatchSize = Math.min(batchSize, remainingCapacity);
 
-        // Execute the search request
+        // Execute the search request with token-based pagination
         const response = await this.executeSearchWithRetry({
           jql,
-          startAt,
           maxResults: currentBatchSize,
           fields,
-          enableRetry
+          enableRetry,
+          nextPageToken: currentPageToken // NEW: Token-based pagination
         });
 
         // Process the response
@@ -177,12 +210,16 @@ export class JQLQueryEngine {
           result.issues.length < result.total && result.issues.length < maxResults ? 'downloading' : 'complete'
         );
 
-        // Check if there are more results
-        startAt += response.issues.length;
-        hasMore = startAt < response.total && result.issues.length < maxResults;
+        // NEW: Token-based pagination logic
+        currentPageToken = response.nextPageToken;
+        hasMore = response.nextPageToken !== undefined && result.issues.length < maxResults;
+
+        // Store pagination info in result
+        result.nextPageToken = response.nextPageToken;
+        result.isLast = response.nextPageToken === undefined || result.issues.length >= maxResults;
 
         // Mark as truncated if we hit the maxResults limit
-        if (startAt < response.total && result.issues.length >= maxResults) {
+        if (response.nextPageToken && result.issues.length >= maxResults) {
           result.truncated = true;
         }
 
@@ -198,23 +235,24 @@ export class JQLQueryEngine {
       }
     }
 
-    // Final progress report
+    // Final progress report and execution time
     this.reportProgress(onProgress, result.issues.length, result.total, 'complete');
+    result.executionTime = Date.now() - startTime;
 
     return result;
   }
 
   /**
-   * Executes a search request with optional retry logic
+   * Executes a search request with optional retry logic and token-based pagination
    */
   private async executeSearchWithRetry(params: {
     jql: string;
-    startAt: number;
     maxResults: number;
     fields: string[];
     enableRetry: boolean;
+    nextPageToken?: string; // NEW: Token-based pagination
   }): Promise<any> {
-    const { jql, startAt, maxResults, fields, enableRetry } = params;
+    const { jql, maxResults, fields, enableRetry, nextPageToken } = params;
     let lastError: any;
     const maxAttempts = enableRetry ? 3 : 1;
 
@@ -222,9 +260,9 @@ export class JQLQueryEngine {
       try {
         return await this.jiraClient.searchIssues({
           jql,
-          startAt,
           maxResults,
-          fields
+          fields,
+          nextPageToken // NEW: Token-based pagination
         });
       } catch (error: any) {
         lastError = error;

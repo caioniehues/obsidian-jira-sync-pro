@@ -1,0 +1,322 @@
+openapi: 3.0.3
+info:
+  title: JQL Auto-Sync API Contracts
+  description: API contracts for JQL-based automatic synchronization
+  version: 1.0.0
+
+servers:
+  - url: https://{jiraInstance}.atlassian.net
+    description: Jira Cloud instance
+
+paths:
+  /rest/api/3/search/jql:
+    post:
+      summary: Execute JQL query with token-based pagination
+      description: |
+        NEW endpoint replacing deprecated /rest/api/3/search.
+        Uses nextPageToken instead of startAt for pagination.
+        Returns minimal issue fields by default - must explicitly request fields.
+      operationId: searchIssuesWithJQL
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - jql
+              properties:
+                jql:
+                  type: string
+                  description: JQL query string
+                  example: "assignee = currentUser() AND status NOT IN (Done, Closed)"
+                  maxLength: 2048
+                maxResults:
+                  type: integer
+                  description: Number of results per page
+                  minimum: 1
+                  maximum: 100
+                  default: 50
+                nextPageToken:
+                  type: string
+                  description: Token for pagination (omit for first page)
+                  example: "CAEaAggD"
+                fields:
+                  type: array
+                  description: Fields to include in response
+                  items:
+                    type: string
+                  example: ["summary", "status", "assignee", "priority", "updated"]
+                expand:
+                  type: array
+                  description: Additional data to expand
+                  items:
+                    type: string
+                    enum: ["changelog", "renderedFields", "transitions"]
+                  example: ["changelog"]
+      responses:
+        '200':
+          description: JQL query executed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  maxResults:
+                    type: integer
+                    description: Number of results per page
+                    example: 50
+                  startAt:
+                    type: integer
+                    description: Always 0 for new API (legacy field)
+                    example: 0
+                  total:
+                    type: integer
+                    description: Approximate total results (may change)
+                    example: 234
+                  issues:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/JiraIssue'
+                  nextPageToken:
+                    type: string
+                    description: Token for next page (absent on last page)
+                    example: "CAEaAggE"
+        '400':
+          description: Invalid JQL syntax or request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                errorMessages:
+                  - "The value 'invalidfield' does not exist for the field 'field'."
+                errors: {}
+        '401':
+          description: Authentication required or invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Insufficient permissions to view issues
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds to wait before retrying
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                errorMessages:
+                  - "Rate limit exceeded. Please try again later."
+                errors: {}
+
+  /rest/api/3/search/approximate-count:
+    post:
+      summary: Get approximate count of issues matching JQL
+      description: Returns approximate count without fetching actual issues
+      operationId: getApproximateCount
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - jql
+              properties:
+                jql:
+                  type: string
+                  description: JQL query string
+                  example: "project = PROJ AND status != Done"
+      responses:
+        '200':
+          description: Count retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                    description: Approximate number of matching issues
+                    example: 237
+
+  /rest/api/3/jql/parse:
+    post:
+      summary: Validate JQL query syntax
+      description: Parse and validate JQL query without executing
+      operationId: parseJQL
+      security:
+        - basicAuth: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - queries
+              properties:
+                queries:
+                  type: array
+                  description: JQL queries to validate
+                  items:
+                    type: string
+                  example: ["assignee = currentUser()", "project in (FOO, BAR)"]
+      responses:
+        '200':
+          description: Queries parsed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  queries:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        query:
+                          type: string
+                          description: Original query
+                        structure:
+                          type: object
+                          description: Parsed query structure
+                        errors:
+                          type: array
+                          items:
+                            type: object
+                          description: Parse errors (if any)
+
+components:
+  schemas:
+    JiraIssue:
+      type: object
+      required:
+        - id
+        - key
+        - self
+      properties:
+        id:
+          type: string
+          description: Jira internal issue ID
+          example: "10068"
+        key:
+          type: string
+          description: Human-readable issue key
+          example: "PROJ-123"
+        self:
+          type: string
+          format: uri
+          description: REST API URL for this issue
+          example: "https://example.atlassian.net/rest/api/3/issue/10068"
+        fields:
+          type: object
+          description: Issue fields (only requested fields returned)
+          properties:
+            summary:
+              type: string
+              example: "Implement user authentication"
+            status:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: "In Progress"
+                statusCategory:
+                  type: object
+                  properties:
+                    key:
+                      type: string
+                      enum: ["new", "indeterminate", "done"]
+                      example: "indeterminate"
+                    colorName:
+                      type: string
+                      example: "blue"
+            assignee:
+              type: object
+              nullable: true
+              properties:
+                accountId:
+                  type: string
+                  example: "5b10a2844c20165700ede21g"
+                displayName:
+                  type: string
+                  example: "John Doe"
+                emailAddress:
+                  type: string
+                  example: "john.doe@company.com"
+            priority:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: "High"
+                iconUrl:
+                  type: string
+                  format: uri
+                  example: "https://example.atlassian.net/images/icons/priorities/high.svg"
+            created:
+              type: string
+              format: date-time
+              example: "2025-09-10T09:15:00.000+0000"
+            updated:
+              type: string
+              format: date-time
+              example: "2025-09-10T14:30:00.000+0000"
+            project:
+              type: object
+              properties:
+                key:
+                  type: string
+                  example: "PROJ"
+                name:
+                  type: string
+                  example: "Project Name"
+
+    ErrorResponse:
+      type: object
+      properties:
+        errorMessages:
+          type: array
+          items:
+            type: string
+          description: List of error messages
+        errors:
+          type: object
+          additionalProperties:
+            type: string
+          description: Field-specific errors
+        warningMessages:
+          type: array
+          items:
+            type: string
+          description: Warning messages
+
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+      description: Basic authentication with email/API token
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth 2.0 bearer token

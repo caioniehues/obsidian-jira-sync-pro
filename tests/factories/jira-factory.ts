@@ -239,13 +239,19 @@ export class JiraFactory {
     const remainingIssues = Math.max(0, totalIssues - startAt);
     const issuesInPage = Math.min(pageSize, remainingIssues);
     
+    // Determine if there are more pages
+    const hasNextPage = startAt + issuesInPage < totalIssues;
+    
     return {
       startAt,
       maxResults: pageSize,
       total: totalIssues,
       issues: this.createIssues(issuesInPage, {
         key: `PAGE${page}-{index}`
-      })
+      }),
+      // NEW: Token-based pagination fields
+      nextPageToken: hasNextPage ? `token_page_${page + 1}_${Date.now()}` : undefined,
+      isLast: !hasNextPage
     };
   }
 

@@ -134,13 +134,17 @@ describe('JQLQueryEngine', () => {
           issues: page1Issues,
           total: 75,
           startAt: 0,
-          maxResults: 50
+          maxResults: 50,
+          nextPageToken: 'token_page_1',
+          isLast: false
         })
         .mockResolvedValueOnce({
           issues: page2Issues,
           total: 75,
           startAt: 50,
-          maxResults: 50
+          maxResults: 50,
+          nextPageToken: undefined,
+          isLast: true
         });
 
       // Act

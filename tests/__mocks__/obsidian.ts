@@ -222,6 +222,12 @@ export class Vault {
     return file;
   }
 
+  async createFolder(path: string): Promise<TFolder> {
+    const folder = new TFolder(path);
+    this.folders.set(path, folder);
+    return folder;
+  }
+
   async delete(file: TAbstractFile): Promise<void> {
     this.files.delete(file.path);
     this.folders.delete(file.path);
@@ -263,6 +269,10 @@ export class WorkspaceLeaf {
   setViewState(viewState: any) {
     return Promise.resolve();
   }
+
+  detach() {
+    return Promise.resolve();
+  }
 }
 
 export class Workspace {
@@ -272,6 +282,18 @@ export class Workspace {
   
   getLeavesOfType(type: string): WorkspaceLeaf[] {
     return [];
+  }
+
+  getRightLeaf(split: boolean = false): WorkspaceLeaf | null {
+    return new WorkspaceLeaf();
+  }
+
+  getLeftLeaf(split: boolean = false): WorkspaceLeaf | null {
+    return new WorkspaceLeaf();
+  }
+
+  revealLeaf(leaf: WorkspaceLeaf): void {
+    // Mock reveal implementation
   }
 
   getActiveFile(): TFile | null {
@@ -372,6 +394,10 @@ export class Plugin {
   }
 
   addSettingTab(tab: PluginSettingTab): void {
+    // Mock implementation
+  }
+
+  registerView(type: string, viewCreator: (leaf: WorkspaceLeaf) => ItemView): void {
     // Mock implementation
   }
 
@@ -651,19 +677,13 @@ export class PluginSettingTab {
 }
 
 // Notice Mock
-export class Notice {
-  message: string;
-  timeout: number;
-  
-  constructor(message: string, timeout?: number) {
-    this.message = message;
-    this.timeout = timeout || 5000;
-  }
-
-  hide(): void {
-    // Mock implementation
-  }
-}
+export const Notice = jest.fn().mockImplementation((message: string, timeout?: number) => {
+  return {
+    message,
+    timeout: timeout || 5000,
+    hide: jest.fn()
+  };
+});
 
 // Utility Functions Mock
 export function normalizePath(path: string): string {
@@ -781,6 +801,28 @@ export class View {
   }
 }
 
+// ItemView Mock (extends View for Obsidian views)
+export class ItemView extends View {
+  constructor(leaf: WorkspaceLeaf) {
+    super(leaf);
+    this.containerEl = new MockHTMLElement('div');
+    // Add children array to containerEl to match expected structure
+    this.containerEl.children = [new MockHTMLElement('div'), new MockHTMLElement('div')];
+  }
+
+  getIcon(): string {
+    return 'document';
+  }
+
+  async onOpen(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  async onClose(): Promise<void> {
+    return Promise.resolve();
+  }
+}
+
 // Export default Document mock for DOM manipulation
 export const document = {
   createElement: (tagName: string) => new MockHTMLElement(tagName),
@@ -837,6 +879,7 @@ export default {
   TAbstractFile,
   Vault,
   Workspace,
+  WorkspaceLeaf,
   MetadataCache,
   Component,
   requestUrl,
@@ -845,6 +888,7 @@ export default {
   Platform,
   Editor,
   View,
+  ItemView,
   document,
   window
 };

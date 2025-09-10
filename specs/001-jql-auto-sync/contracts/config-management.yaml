@@ -1,0 +1,447 @@
+openapi: 3.0.3
+info:
+  title: Configuration Management Contract
+  description: Internal API contract for JQL auto-sync configuration management
+  version: 1.0.0
+
+paths:
+  /config/auto-sync:
+    get:
+      summary: Get current auto-sync configuration
+      description: Retrieves the current JQL auto-sync configuration settings
+      operationId: getAutoSyncConfig
+      responses:
+        '200':
+          description: Configuration retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JQLAutoSyncConfig'
+
+    put:
+      summary: Update auto-sync configuration
+      description: |
+        Updates the JQL auto-sync configuration.
+        Validates JQL query syntax before saving if validateQuery is true.
+        May trigger immediate sync if enabled status changes from false to true.
+      operationId: updateAutoSyncConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JQLAutoSyncConfigUpdate'
+      responses:
+        '200':
+          description: Configuration updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  updated:
+                    type: boolean
+                    example: true
+                  validationResult:
+                    $ref: '#/components/schemas/JQLValidationResult'
+                  syncTriggered:
+                    type: boolean
+                    description: Whether an immediate sync was triggered
+                    example: true
+        '400':
+          description: Invalid configuration parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigValidationError'
+
+  /config/auto-sync/validate:
+    post:
+      summary: Validate JQL query
+      description: |
+        Validates JQL query syntax and permissions without saving configuration.
+        Also estimates result count for the query.
+      operationId: validateJQLQuery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - jqlQuery
+              properties:
+                jqlQuery:
+                  type: string
+                  description: JQL query to validate
+                  example: "assignee = currentUser() AND status != Done"
+      responses:
+        '200':
+          description: Validation completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JQLValidationResult'
+
+  /config/auto-sync/test:
+    post:
+      summary: Test auto-sync configuration
+      description: |
+        Performs a test run of the auto-sync with current configuration.
+        Returns first batch of results without creating vault files.
+      operationId: testAutoSyncConfig
+      responses:
+        '200':
+          description: Test completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  testResults:
+                    $ref: '#/components/schemas/SyncTestResults'
+        '400':
+          description: Configuration invalid or incomplete
+
+  /config/auto-sync/reset:
+    post:
+      summary: Reset auto-sync configuration
+      description: |
+        Resets configuration to default values.
+        Stops any running sync operations.
+        Clears sync history and statistics.
+      operationId: resetAutoSyncConfig
+      responses:
+        '200':
+          description: Configuration reset successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reset:
+                    type: boolean
+                    example: true
+                  stoppedOperations:
+                    type: integer
+                    description: Number of operations that were stopped
+                    example: 1
+
+  /config/sync-statistics:
+    get:
+      summary: Get sync operation statistics
+      description: Returns aggregated statistics about sync operations
+      operationId: getSyncStatistics
+      responses:
+        '200':
+          description: Statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncStatistics'
+
+    delete:
+      summary: Clear sync statistics
+      description: Clears all collected sync statistics and resets counters
+      operationId: clearSyncStatistics
+      responses:
+        '200':
+          description: Statistics cleared successfully
+
+components:
+  schemas:
+    JQLAutoSyncConfig:
+      type: object
+      properties:
+        # Feature control
+        enabled:
+          type: boolean
+          description: Whether auto-sync is enabled
+          default: false
+        
+        # Query configuration
+        jqlQuery:
+          type: string
+          description: JQL query string
+          example: "assignee = currentUser() AND status NOT IN (Done, Closed)"
+          maxLength: 2048
+        validateQuery:
+          type: boolean
+          description: Whether to validate query syntax before execution
+          default: true
+        
+        # Sync timing
+        syncInterval:
+          type: integer
+          description: Minutes between automatic syncs
+          minimum: 1
+          maximum: 60
+          default: 5
+        lastSyncTime:
+          type: string
+          format: date-time
+          description: Timestamp of last successful sync
+          nullable: true
+          example: "2025-09-10T14:30:00Z"
+        
+        # Processing limits
+        maxResults:
+          type: integer
+          description: Maximum results per sync operation
+          minimum: 1
+          maximum: 1000
+          default: 1000
+        batchSize:
+          type: integer
+          description: Number of tickets processed per batch
+          minimum: 10
+          maximum: 100
+          default: 50
+        
+        # State tracking
+        syncInProgress:
+          type: boolean
+          description: Whether sync is currently running
+          default: false
+          readOnly: true
+        failedSyncCount:
+          type: integer
+          description: Count of consecutive failed syncs
+          minimum: 0
+          default: 0
+          readOnly: true
+        lastError:
+          type: string
+          description: Last sync error message
+          nullable: true
+          readOnly: true
+        
+        # Bulk import state
+        bulkImportInProgress:
+          type: boolean
+          description: Whether bulk import is running
+          default: false
+          readOnly: true
+
+    JQLAutoSyncConfigUpdate:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        jqlQuery:
+          type: string
+          maxLength: 2048
+        validateQuery:
+          type: boolean
+        syncInterval:
+          type: integer
+          minimum: 1
+          maximum: 60
+        maxResults:
+          type: integer
+          minimum: 1
+          maximum: 1000
+        batchSize:
+          type: integer
+          minimum: 10
+          maximum: 100
+
+    JQLValidationResult:
+      type: object
+      properties:
+        valid:
+          type: boolean
+          description: Whether JQL query is valid
+          example: true
+        errorMessage:
+          type: string
+          description: Validation error message (if invalid)
+          nullable: true
+          example: "Field 'invalidField' does not exist"
+        warnings:
+          type: array
+          items:
+            type: string
+          description: Non-fatal validation warnings
+          example: ["Query may return large result set"]
+        estimatedCount:
+          type: integer
+          description: Estimated number of matching issues
+          nullable: true
+          example: 150
+        queryComplexity:
+          type: string
+          enum: ["low", "medium", "high"]
+          description: Estimated query performance impact
+          example: "medium"
+        suggestedOptimizations:
+          type: array
+          items:
+            type: string
+          description: Suggestions to improve query performance
+          example: ["Consider adding a date range filter"]
+
+    SyncTestResults:
+      type: object
+      properties:
+        queryExecutionTime:
+          type: number
+          description: Time to execute JQL query (milliseconds)
+          example: 1250.5
+        issuesFound:
+          type: integer
+          description: Number of issues found by query
+          example: 47
+        sampleIssues:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+                example: "PROJ-123"
+              summary:
+                type: string
+                example: "Implement user authentication"
+              status:
+                type: string
+                example: "In Progress"
+          description: Sample of issues that would be synced
+          maxItems: 5
+        newIssues:
+          type: integer
+          description: Issues not currently in vault
+          example: 12
+        existingIssues:
+          type: integer
+          description: Issues already in vault
+          example: 35
+        estimatedSyncTime:
+          type: number
+          description: Estimated time for full sync (seconds)
+          example: 45.2
+        potentialIssues:
+          type: array
+          items:
+            type: string
+          description: Potential problems identified
+          example: ["Large result set may take significant time"]
+
+    SyncStatistics:
+      type: object
+      properties:
+        # Overall metrics
+        totalSyncOperations:
+          type: integer
+          description: Total number of sync operations performed
+          example: 247
+        successfulSyncs:
+          type: integer
+          description: Number of successful sync operations
+          example: 234
+        failedSyncs:
+          type: integer
+          description: Number of failed sync operations
+          example: 13
+        
+        # Timing metrics
+        averageSyncDuration:
+          type: number
+          description: Average sync duration in seconds
+          example: 23.5
+        lastSyncDuration:
+          type: number
+          description: Duration of last sync in seconds
+          example: 18.2
+        longestSyncDuration:
+          type: number
+          description: Longest sync duration recorded in seconds
+          example: 127.8
+        
+        # Volume metrics
+        totalTicketsProcessed:
+          type: integer
+          description: Total tickets processed across all syncs
+          example: 3452
+        ticketsCreated:
+          type: integer
+          description: New tickets created in vault
+          example: 1876
+        ticketsUpdated:
+          type: integer
+          description: Existing tickets updated
+          example: 1523
+        ticketsSkipped:
+          type: integer
+          description: Tickets skipped (duplicates/filtered)
+          example: 53
+        
+        # Performance metrics
+        averageTicketsPerSecond:
+          type: number
+          description: Average processing rate
+          example: 4.2
+        apiCallsThisHour:
+          type: integer
+          description: API calls made in current hour
+          example: 15
+        
+        # Error tracking
+        errorsByCategory:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Error counts by category
+          example:
+            "NETWORK_ERROR": 5
+            "RATE_LIMIT": 3
+            "API_ERROR": 2
+        consecutiveFailures:
+          type: integer
+          description: Current consecutive failure count
+          example: 0
+        
+        # Time series data
+        hourlyStats:
+          type: array
+          items:
+            type: object
+            properties:
+              hour:
+                type: integer
+                description: Unix timestamp rounded to hour
+                example: 1694365200
+              syncs:
+                type: integer
+                description: Sync operations in this hour
+                example: 12
+              tickets:
+                type: integer
+                description: Tickets processed in this hour
+                example: 89
+              errors:
+                type: integer
+                description: Errors in this hour
+                example: 1
+
+    ConfigValidationError:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Invalid configuration"
+        fieldErrors:
+          type: object
+          additionalProperties:
+            type: string
+          example:
+            "syncInterval": "Must be between 1 and 60 minutes"
+            "jqlQuery": "Query syntax is invalid"
+        suggestions:
+          type: array
+          items:
+            type: string
+          example: ["Use a simpler JQL query", "Reduce batch size for better performance"]
