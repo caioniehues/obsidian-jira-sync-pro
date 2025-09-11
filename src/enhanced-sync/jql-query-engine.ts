@@ -18,6 +18,8 @@ export interface JQLQueryOptions {
   // NEW: Token-based pagination support
   nextPageToken?: string;
   pageToken?: string; // Alternative name for nextPageToken (for test compatibility)
+  // Add flag to control permission wrapper
+  addPermissionFilter?: boolean;
 }
 
 /**
@@ -156,7 +158,8 @@ export class JQLQueryEngine {
       enableRetry = false,
       signal,
       nextPageToken, // NEW: Token-based pagination
-      pageToken // Alternative name for nextPageToken (for test compatibility)
+      pageToken, // Alternative name for nextPageToken (for test compatibility)
+      addPermissionFilter = false // Default to false for backward compatibility with tests
     } = options;
 
     // Validate inputs
@@ -172,8 +175,8 @@ export class JQLQueryEngine {
       throw new Error('batchSize must be greater than 0');
     }
 
-    // Make query permission-safe
-    const safeJql = this.makeQueryPermissionSafe(jql);
+    // Make query permission-safe only if requested
+    const safeJql = addPermissionFilter ? this.makeQueryPermissionSafe(jql) : jql;
 
     const result: JQLQueryResult = {
       issues: [],

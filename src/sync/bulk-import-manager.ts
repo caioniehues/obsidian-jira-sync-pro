@@ -103,7 +103,8 @@ export class BulkImportManager {
       const queryResult = await this.queryEngine.executeQuery({
         jql: options.jqlQuery,
         maxResults: 1000,
-        batchSize: 50
+        batchSize: 50,
+        addPermissionFilter: true // Enable permission filter in production
       });
 
       const tickets = queryResult.issues;
@@ -117,11 +118,15 @@ export class BulkImportManager {
       this.reportProgress(options.onProgress);
       await this.processBatches(tickets, options);
 
-      // Phase 3: Complete
-      if (!this.shouldCancel && !this.shouldPause) {
+      // Phase 3: Complete or handle cancellation/pause
+      if (this.shouldCancel) {
+        this.updatePhase(SyncPhase.CANCELLED);
+      } else if (this.shouldPause) {
+        // Already handled in processBatches
+      } else {
         this.updatePhase(SyncPhase.COMPLETE);
-        this.reportProgress(options.onProgress);
       }
+      this.reportProgress(options.onProgress);
 
       return this.createResult();
 
@@ -391,6 +396,11 @@ export class BulkImportManager {
       if (options.enableResume && (batchIndex + 1) % 5 === 0) {
         await this.saveImportState();
       }
+
+      // Add 100ms delay between batches (except for the last batch)
+      if (batchIndex < totalBatches - 1 && !this.shouldCancel && !this.shouldPause) {
+        await this.sleep(100);
+      }
     }
   }
 
@@ -557,6 +567,15 @@ export class BulkImportManager {
   private async yieldToUI(): Promise<void> {
     return new Promise(resolve => {
       setTimeout(resolve, 1);
+    });
+  }
+
+  /**
+   * Sleep utility for controlled delays
+   */
+  private async sleep(ms: number): Promise<void> {
+    return new Promise(resolve => {
+      setTimeout(resolve, ms);
     });
   }
 
