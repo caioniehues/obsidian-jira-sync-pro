@@ -381,7 +381,7 @@ Add this to your data.json to immediately fix the issue:
 {
   "jiraUrl": "https://richemont.atlassian.net",
   "jiraUsername": "caio.niehues@richemont.com",
-  "jiraApiToken": "your-jira-api-token",
+  "jiraApiToken": "YOUR_API_TOKEN_HERE",
   "jqlQuery": "assignee = currentUser() AND updated >= -7d AND project in projectsWhereUserHasPermission(\"Browse Projects\")",
   "syncInterval": 5,
   "autoSyncEnabled": true,
