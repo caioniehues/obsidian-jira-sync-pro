@@ -9,6 +9,10 @@ import { EventBus } from './events/event-bus';
 import { PluginRegistry } from './integrations/PluginRegistry';
 import { IntegrationBridge } from './integrations/IntegrationBridge';
 import { StatusMapping, DEFAULT_STATUS_MAPPING } from './settings/settings-types';
+import { initializePARAStructure, checkPARAStructure } from './organization/para-setup';
+import { TimeTracker, TimerStatsTracker, TimeTrackingEvents } from './time/time-tracker';
+import { parseTimeString, formatTime, validateTimeString } from './time/time-parser';
+import { JiraWorklogClient, extractTimeEntriesFromMarkdown, markEntryAsPushed, createConfirmationMessage } from './time/jira-worklog-client';
 
 interface JiraSyncProSettings {
   jiraUrl: string;
@@ -29,6 +33,26 @@ interface JiraSyncProSettings {
   keepRecentArchive?: boolean;
   recentArchiveDays?: number;
   statusMapping?: StatusMapping;
+  
+  // NEW: PARA Organization Settings
+  usePARAStructure?: boolean;
+  projectsFolder?: string;
+  areasFolder?: string;
+  resourcesFolder?: string;
+  archivesFolder?: string;
+  
+  // NEW: Time Tracking Settings
+  timeTrackingEnabled?: boolean;
+  confirmBeforePush?: boolean;
+  roundToMinutes?: number;
+  
+  // NEW: Template Settings
+  useTemplates?: boolean;
+  includeTimeLog?: boolean;
+  
+  // NEW: Custom Field Settings
+  syncCustomFields?: boolean;
+  customFieldMappings?: Record<string, string>;
   
   // Plugin Integrations
   enabledIntegrations?: string[];
@@ -54,6 +78,26 @@ const DEFAULT_SETTINGS: JiraSyncProSettings = {
   recentArchiveDays: 30,
   statusMapping: DEFAULT_STATUS_MAPPING,
   
+  // NEW: PARA Organization Settings
+  usePARAStructure: false,
+  projectsFolder: '01_Projects',
+  areasFolder: '02_Areas', 
+  resourcesFolder: '03_Resources',
+  archivesFolder: '04_Archives',
+  
+  // NEW: Time Tracking Settings
+  timeTrackingEnabled: true,
+  confirmBeforePush: true,
+  roundToMinutes: 5,
+  
+  // NEW: Template Settings
+  useTemplates: true,
+  includeTimeLog: true,
+  
+  // NEW: Custom Field Settings
+  syncCustomFields: false,
+  customFieldMappings: {},
+  
   // Plugin Integrations
   enabledIntegrations: []
 };
@@ -70,6 +114,11 @@ export default class JiraSyncProPlugin extends Plugin {
   private integrationBridge: IntegrationBridge | null = null;
   private initializationPromise: Promise<void> | null = null;
   private isInitialized: boolean = false;
+  
+  // NEW: Time Tracking Components  
+  private timeTracker: TimeTracker | null = null;
+  private timerStats: TimerStatsTracker | null = null;
+  private jiraWorklogClient: JiraWorklogClient | null = null;
 
   async onload() {
     console.log('Jira Sync Pro: Starting plugin initialization...');
@@ -99,6 +148,11 @@ export default class JiraSyncProPlugin extends Plugin {
       } else {
         console.log('Jira Sync Pro: No valid credentials, skipping component initialization');
         new Notice('Jira Sync Pro: Please configure your Jira credentials in settings');
+      }
+
+      // Initialize time tracking if enabled
+      if (this.settings.timeTrackingEnabled) {
+        this.initializeTimeTracking();
       }
 
       // Register commands
@@ -136,6 +190,13 @@ export default class JiraSyncProPlugin extends Plugin {
         console.error('Error stopping scheduler:', error);
       }
     }
+
+    // Clean up time tracking
+    if (this.timeTracker) {
+      this.timeTracker.destroy();
+      this.timeTracker = null;
+    }
+    this.timerStats = null;
 
     // Clean up integration bridge first (it manages event bus)
     if (this.integrationBridge) {
@@ -354,6 +415,77 @@ export default class JiraSyncProPlugin extends Plugin {
       id: 'jira-sync-test-integrations',
       name: 'Test all enabled integrations',
       callback: () => this.testIntegrations()
+    });
+
+    // PARA Organization commands
+    this.addCommand({
+      id: 'jira-sync-initialize-para',
+      name: 'Initialize PARA folder structure',
+      callback: () => this.initializePARAStructure()
+    });
+
+    this.addCommand({
+      id: 'jira-sync-check-para',
+      name: 'Check PARA structure status', 
+      callback: () => this.checkPARAStructureStatus()
+    });
+
+    // Time Tracking commands
+    this.addCommand({
+      id: 'jira-timer-start',
+      name: 'Start timer for current ticket',
+      checkCallback: (checking: boolean) => {
+        const activeFile = this.app.workspace.getActiveFile();
+        if (activeFile?.name.match(/^[A-Z]+-\d+\.md$/)) {
+          if (!checking) {
+            const ticketKey = activeFile.basename;
+            this.startTimerForTicket(ticketKey);
+          }
+          return true;
+        }
+        return false;
+      }
+    });
+
+    this.addCommand({
+      id: 'jira-timer-stop',
+      name: 'Stop timer',
+      callback: () => this.stopTimer()
+    });
+
+    this.addCommand({
+      id: 'jira-timer-toggle-pause',
+      name: 'Pause/Resume timer',
+      callback: () => this.toggleTimerPause()
+    });
+
+    this.addCommand({
+      id: 'jira-timer-status',
+      name: 'Show timer status',
+      callback: () => this.showTimerStatus()
+    });
+
+    // Time Entry Push commands
+    this.addCommand({
+      id: 'jira-push-time',
+      name: 'Push time entries to Jira',
+      checkCallback: (checking: boolean) => {
+        const activeFile = this.app.workspace.getActiveFile();
+        if (activeFile?.name.match(/^[A-Z]+-\d+\.md$/)) {
+          if (!checking) {
+            const ticketKey = activeFile.basename;
+            this.pushTimeEntriesToJira(ticketKey);
+          }
+          return true;
+        }
+        return false;
+      }
+    });
+
+    this.addCommand({
+      id: 'jira-test-worklog-connection',
+      name: 'Test Jira worklog connection',
+      callback: () => this.testWorklogConnection()
     });
   }
 
@@ -684,6 +816,300 @@ export default class JiraSyncProPlugin extends Plugin {
     } else {
       new Notice(`Tested ${testedCount} integration${testedCount !== 1 ? 's' : ''}: ${successCount} working`);
     }
+  }
+
+  // PARA Organization Methods
+  private async initializePARAStructure(): Promise<void> {
+    try {
+      new Notice('Initializing PARA folder structure...');
+      
+      const config = {
+        projectsFolder: this.settings.projectsFolder || '01_Projects',
+        areasFolder: this.settings.areasFolder || '02_Areas',
+        resourcesFolder: this.settings.resourcesFolder || '03_Resources', 
+        archivesFolder: this.settings.archivesFolder || '04_Archives'
+      };
+      
+      await initializePARAStructure(this.app.vault, config);
+      
+      // Enable PARA structure in settings
+      this.settings.usePARAStructure = true;
+      await this.saveSettings();
+      
+      new Notice('✅ PARA structure initialized successfully!');
+    } catch (error: any) {
+      console.error('Failed to initialize PARA structure:', error);
+      new Notice(`❌ Failed to initialize PARA structure: ${error.message}`);
+    }
+  }
+
+  private checkPARAStructureStatus(): void {
+    try {
+      const config = {
+        projectsFolder: this.settings.projectsFolder || '01_Projects',
+        areasFolder: this.settings.areasFolder || '02_Areas',
+        resourcesFolder: this.settings.resourcesFolder || '03_Resources',
+        archivesFolder: this.settings.archivesFolder || '04_Archives'
+      };
+      
+      const exists = checkPARAStructure(this.app.vault, config);
+      
+      if (exists) {
+        new Notice('✅ PARA structure is properly set up');
+      } else {
+        new Notice('❌ PARA structure incomplete. Run "Initialize PARA folder structure" command.');
+      }
+    } catch (error: any) {
+      console.error('Error checking PARA structure:', error);
+      new Notice(`❌ Error checking PARA structure: ${error.message}`);
+    }
+  }
+
+  // Time Tracking Methods
+  initializeTimeTracking(): void {
+    if (this.timeTracker) {
+      console.log('Time tracker already initialized');
+      return;
+    }
+
+    try {
+      const events: TimeTrackingEvents = {
+        onTimerStart: (ticketKey: string) => {
+          console.log(`Timer started for ${ticketKey}`);
+        },
+        onTimerStop: async (ticketKey: string, elapsed: number, entry: string) => {
+          console.log(`Timer stopped for ${ticketKey}, elapsed: ${elapsed}ms`);
+          
+          // Record session in stats
+          if (this.timerStats) {
+            await this.timerStats.recordSession(ticketKey, elapsed);
+          }
+          
+          // TODO: Add time entry to ticket file (will be implemented later)
+        },
+        onTimerPause: (ticketKey: string, elapsed: number) => {
+          console.log(`Timer paused for ${ticketKey}, elapsed: ${elapsed}ms`);
+        },
+        onTimerResume: (ticketKey: string) => {
+          console.log(`Timer resumed for ${ticketKey}`);
+        }
+      };
+
+      this.timeTracker = new TimeTracker(this, events);
+      this.timerStats = new TimerStatsTracker(this);
+      
+      // Initialize Jira worklog client
+      this.jiraWorklogClient = new JiraWorklogClient({
+        jiraUrl: this.settings.jiraUrl,
+        jiraUsername: this.settings.jiraUsername,
+        jiraApiToken: this.settings.jiraApiToken,
+        confirmBeforePush: this.settings.confirmBeforePush,
+        roundToMinutes: this.settings.roundToMinutes
+      });
+      
+      console.log('Jira Sync Pro: Time tracking initialized');
+    } catch (error) {
+      console.error('Failed to initialize time tracking:', error);
+      new Notice('❌ Failed to initialize time tracking');
+    }
+  }
+
+  disableTimeTracking(): void {
+    if (this.timeTracker) {
+      this.timeTracker.destroy();
+      this.timeTracker = null;
+    }
+    this.timerStats = null;
+    this.jiraWorklogClient = null;
+    console.log('Jira Sync Pro: Time tracking disabled');
+  }
+
+  private startTimerForTicket(ticketKey: string): void {
+    if (!this.timeTracker) {
+      new Notice('Time tracking is not enabled. Enable it in settings first.');
+      return;
+    }
+
+    this.timeTracker.startTimer(ticketKey);
+  }
+
+  private stopTimer(): void {
+    if (!this.timeTracker) {
+      new Notice('Time tracking is not enabled');
+      return;
+    }
+
+    const entry = this.timeTracker.stopTimer();
+    if (entry) {
+      // TODO: Add entry to current ticket file (will be implemented later)
+    }
+  }
+
+  private toggleTimerPause(): void {
+    if (!this.timeTracker) {
+      new Notice('Time tracking is not enabled');
+      return;
+    }
+
+    this.timeTracker.togglePause();
+  }
+
+  private showTimerStatus(): void {
+    if (!this.timeTracker) {
+      new Notice('Time tracking is not enabled');
+      return;
+    }
+
+    const timer = this.timeTracker.getCurrentTimer();
+    if (!timer) {
+      new Notice('No active timer');
+      return;
+    }
+
+    const elapsed = this.timeTracker.getCurrentElapsed();
+    const formatted = this.timeTracker.formatTime(elapsed);
+    const status = timer.isPaused ? 'Paused' : 'Running';
+    
+    new Notice(`Timer: ${timer.ticketKey}\nStatus: ${status}\nElapsed: ${formatted}`, 4000);
+  }
+
+  // Jira Worklog Methods
+  private async pushTimeEntriesToJira(ticketKey: string): Promise<void> {
+    if (!this.jiraWorklogClient) {
+      new Notice('Time tracking is not enabled');
+      return;
+    }
+
+    if (!this.hasValidCredentials()) {
+      new Notice('Please configure your Jira credentials first');
+      return;
+    }
+
+    try {
+      const activeFile = this.app.workspace.getActiveFile();
+      if (!activeFile) {
+        new Notice('No active file');
+        return;
+      }
+
+      // Read file content
+      const content = await this.app.vault.read(activeFile);
+      
+      // Extract unpushed time entries
+      const entries = extractTimeEntriesFromMarkdown(content, true);
+      
+      if (entries.length === 0) {
+        new Notice('No unpushed time entries found');
+        return;
+      }
+
+      // Show confirmation if enabled
+      if (this.settings.confirmBeforePush) {
+        const confirmed = await this.showPushConfirmation(ticketKey, entries);
+        if (!confirmed) {
+          new Notice('Time push cancelled');
+          return;
+        }
+      }
+
+      // Push entries to Jira
+      const result = await this.jiraWorklogClient.pushTimeEntries(ticketKey, entries);
+      
+      // Mark successful entries as pushed
+      if (result.successCount > 0) {
+        let updatedContent = content;
+        
+        // Mark each successful entry as pushed
+        result.results.forEach(pushResult => {
+          if (pushResult.success && pushResult.entry.line) {
+            updatedContent = markEntryAsPushed(updatedContent, pushResult.entry.line);
+          }
+        });
+        
+        // Save updated content
+        await this.app.vault.modify(activeFile, updatedContent);
+      }
+
+      // Show detailed results if there were failures
+      if (result.failureCount > 0) {
+        console.error('Some time entries failed to push:', result.results);
+        
+        const failedEntries = result.results
+          .filter(r => !r.success)
+          .map(r => `- ${r.entry.time}: ${r.entry.description} (${r.error})`)
+          .join('\n');
+          
+        new Notice(`Failed to push ${result.failureCount} entries:\n${failedEntries}`, 8000);
+      }
+
+    } catch (error: any) {
+      console.error('Failed to push time entries:', error);
+      new Notice(`❌ Failed to push time entries: ${error.message}`);
+    }
+  }
+
+  private async testWorklogConnection(): Promise<void> {
+    if (!this.jiraWorklogClient) {
+      new Notice('Time tracking is not enabled');
+      return;
+    }
+
+    if (!this.hasValidCredentials()) {
+      new Notice('Please configure your Jira credentials first');
+      return;
+    }
+
+    try {
+      new Notice('Testing Jira worklog connection...');
+      
+      // Get ticket key from current file if available
+      const activeFile = this.app.workspace.getActiveFile();
+      const testTicketKey = activeFile?.name.match(/^([A-Z]+-\d+)\.md$/)?.[1];
+      
+      const result = await this.jiraWorklogClient.testConnection(testTicketKey);
+      
+      if (result.success) {
+        new Notice(`✅ ${result.message}`, 5000);
+      } else {
+        new Notice(`❌ ${result.message}`, 6000);
+      }
+      
+    } catch (error: any) {
+      console.error('Worklog connection test failed:', error);
+      new Notice(`❌ Connection test failed: ${error.message}`);
+    }
+  }
+
+  private async showPushConfirmation(ticketKey: string, entries: any[]): Promise<boolean> {
+    return new Promise((resolve) => {
+      const modal = new Modal(this.app);
+      modal.titleEl.setText('Confirm Time Push');
+      
+      const { contentEl } = modal;
+      contentEl.empty();
+      
+      // Create confirmation message
+      const message = createConfirmationMessage(ticketKey, entries);
+      contentEl.createEl('pre', { text: message, cls: 'time-push-confirmation' });
+      
+      // Buttons
+      const buttonContainer = contentEl.createDiv({ cls: 'modal-button-container' });
+      
+      const pushButton = buttonContainer.createEl('button', { text: 'Push to Jira' });
+      pushButton.addClass('mod-cta');
+      pushButton.onclick = () => {
+        modal.close();
+        resolve(true);
+      };
+      
+      const cancelButton = buttonContainer.createEl('button', { text: 'Cancel' });
+      cancelButton.onclick = () => {
+        modal.close();
+        resolve(false);
+      };
+      
+      modal.open();
+    });
   }
 }
 class JiraSyncProSettingTab extends PluginSettingTab {
