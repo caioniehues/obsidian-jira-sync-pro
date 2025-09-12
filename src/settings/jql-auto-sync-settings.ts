@@ -92,11 +92,11 @@ export interface JQLValidationResult extends ValidationResult {
  */
 export class JQLAutoSyncSettingsTab extends PluginSettingTab {
   private settings: JQLAutoSyncSettings;
-  private onSettingsChanged: (settings: JQLAutoSyncSettings) => Promise<void>;
+  private readonly onSettingsChanged: (settings: JQLAutoSyncSettings) => Promise<void>;
   
   // Component dependencies
-  private queryEngine?: JQLQueryEngine;
-  private scheduler?: AutoSyncScheduler;
+  private readonly queryEngine?: JQLQueryEngine;
+  private readonly scheduler?: AutoSyncScheduler;
   
   // UI Element references for state management
   private jqlQueryValidationTimeout: NodeJS.Timeout | null = null;
@@ -737,7 +737,7 @@ export class JQLAutoSyncSettingsTab extends PluginSettingTab {
       warnings: []
     };
     
-    if (!query || !query.trim()) {
+    if (!query?.trim()) {
       result.errors.push('JQL query cannot be empty');
       return result;
     }
@@ -1070,7 +1070,7 @@ export class JQLAutoSyncSettingsTab extends PluginSettingTab {
    * Validates JQL syntax (basic validation)
    */
   private validateJQLSyntax(query: string): boolean {
-    if (!query || !query.trim()) return false;
+    if (!query?.trim()) return false;
     
     // Basic JQL syntax patterns
     const patterns = [
@@ -1086,7 +1086,7 @@ export class JQLAutoSyncSettingsTab extends PluginSettingTab {
    * Validates folder path format
    */
   private isValidFolderPath(path: string): boolean {
-    if (!path || !path.trim()) return false;
+    if (!path?.trim()) return false;
     if (path.startsWith('/') || path.startsWith('..')) return false;
     if (path.includes('\\') || path.includes(':')) return false;
     return true;

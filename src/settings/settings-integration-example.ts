@@ -22,7 +22,7 @@ import { JiraClient } from '../jira-bases-adapter/jira-client';
  */
 export class ExamplePluginIntegration extends Plugin {
   private settings: JQLAutoSyncSettings = DEFAULT_JQL_SETTINGS;
-  private settingsTab?: JQLAutoSyncSettingsTab;
+  private readonly settingsTab?: JQLAutoSyncSettingsTab;
   private settingsValidator?: SettingsValidator;
   
   // Plugin components
@@ -174,25 +174,25 @@ export class ExamplePluginIntegration extends Plugin {
     this.addCommand({
       id: 'jql-sync-manual',
       name: 'Sync Jira tickets now',
-      callback: () => this.performManualSync()
+      callback: async () => this.performManualSync()
     });
 
     this.addCommand({
       id: 'jql-sync-toggle',
       name: 'Toggle auto-sync',
-      callback: () => this.toggleAutoSync()
+      callback: async () => this.toggleAutoSync()
     });
 
     this.addCommand({
       id: 'jql-sync-validate-settings',
       name: 'Validate JQL settings',
-      callback: () => this.validateSettings()
+      callback: async () => this.validateSettings()
     });
 
     this.addCommand({
       id: 'jql-sync-test-connection',
       name: 'Test Jira connection',
-      callback: () => this.testConnection()
+      callback: async () => this.testConnection()
     });
   }
 
@@ -313,7 +313,7 @@ export class ExamplePluginIntegration extends Plugin {
  * the base JQL Auto-Sync Settings with additional functionality
  */
 export class CustomJQLSettingsTab extends JQLAutoSyncSettingsTab {
-  private plugin: ExamplePluginIntegration;
+  private readonly plugin: ExamplePluginIntegration;
 
   constructor(app: App, plugin: ExamplePluginIntegration) {
     super(

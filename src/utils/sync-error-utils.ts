@@ -5,7 +5,7 @@
  * sync errors, including retry logic and exponential backoff calculations.
  */
 
-import { SyncError, SyncPhase, ErrorCategory, ERROR_CODES } from '../types/sync-types';
+import { SyncError, ErrorCategory, ERROR_CODES } from '../types/sync-types';
 
 /**
  * Partial SyncError type for creation - timestamp is optional as it can be auto-generated
@@ -23,11 +23,11 @@ type SyncErrorInput = Omit<SyncError, 'timestamp'> & {
  */
 export function createSyncError(errorData: SyncErrorInput): SyncError {
   // Validate required properties
-  if (!errorData.code || errorData.code.trim() === '') {
+  if (errorData.code === undefined || errorData.code === null || errorData.code === '' || errorData.code.trim() === '') {
     throw new Error('Error code cannot be empty');
   }
   
-  if (!errorData.message || errorData.message.trim() === '') {
+  if (errorData.message === undefined || errorData.message === null || errorData.message === '' || errorData.message.trim() === '') {
     throw new Error('Error message cannot be empty');
   }
   
@@ -209,7 +209,7 @@ export function createUserFriendlyMessage(error: SyncError): string {
  * @returns Formatted time string
  */
 function formatRetryTime(nextRetryAt: number | undefined): string {
-  if (!nextRetryAt) {
+  if (nextRetryAt === undefined || nextRetryAt === null || nextRetryAt === 0) {
     return 'unknown';
   }
   
@@ -235,7 +235,7 @@ export function serializeSyncError(error: SyncError): Omit<SyncError, 'originalE
   return {
     ...serializable,
     // Convert Error object to string for serialization
-    originalError: originalError ? `${originalError.name}: ${originalError.message}` : undefined
+    originalError: (originalError !== undefined && originalError !== null) ? `${originalError.name}: ${originalError.message}` : undefined
   };
 }
 
@@ -246,6 +246,6 @@ export function serializeSyncError(error: SyncError): Omit<SyncError, 'originalE
  * @param serializedError - The serialized error data
  * @returns SyncError object (with originalError as string if present)
  */
-export function deserializeSyncError(serializedError: any): SyncError {
+export function deserializeSyncError(serializedError: unknown): SyncError {
   return serializedError as SyncError;
 }

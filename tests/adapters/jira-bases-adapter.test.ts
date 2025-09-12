@@ -215,65 +215,113 @@ describe('JiraBasesAdapter', () => {
         errors: [],
         warnings: [],
         duration: 1000
+      };
       vi.spyOn(adapter as any, 'syncJiraToBase').mockResolvedValue(undefined);
       const result = await adapter.sync(syncOptions);
       expect(result.totalProcessed).toBeGreaterThanOrEqual(0);
       expect(result.duration).toBeGreaterThanOrEqual(0);
       expect(console.log).toHaveBeenCalledWith('Starting sync with direction: jira-to-base');
+    });
     it('should perform Base to Jira sync', async () => {
+      const syncOptions = {
         direction: 'base-to-jira',
         conflictResolution: 'base-wins'
+      } as any;
       vi.spyOn(adapter as any, 'syncBaseToJira').mockResolvedValue(undefined);
+      await adapter.sync(syncOptions);
       expect(console.log).toHaveBeenCalledWith('Starting sync with direction: base-to-jira');
+    });
+
     it('should perform bidirectional sync', async () => {
+      const syncOptions = {
         direction: 'bidirectional',
         conflictResolution: 'merge'
+      } as any;
       vi.spyOn(adapter as any, 'syncBidirectional').mockResolvedValue(undefined);
+      await adapter.sync(syncOptions);
       expect(console.log).toHaveBeenCalledWith('Starting sync with direction: bidirectional');
+    });
     it('should handle sync errors gracefully', async () => {
+      const syncOptions = {
+        direction: 'jira-to-base',
         conflictResolution: 'jira-wins'
+      } as any;
       const mockError = new Error('Sync failed');
       vi.spyOn(adapter as any, 'syncJiraToBase').mockRejectedValue(mockError);
-          id: 'SYNC_ERROR',
-          error: mockError.message
+      const result = await adapter.sync(syncOptions);
+      expect(result.errors).toContainEqual({
+        id: 'SYNC_ERROR',
+        error: mockError.message
+      });
+    });
+
     it('should track sync duration accurately', async () => {
+      const syncOptions = {
+        direction: 'jira-to-base',
+        conflictResolution: 'jira-wins'
+      } as any;
       // Mock a delay in sync operation
       vi.spyOn(adapter as any, 'syncJiraToBase').mockImplementation(
         () => new Promise(resolve => setTimeout(resolve, 100))
+      );
+      const result = await adapter.sync(syncOptions);
       expect(result.duration).toBeGreaterThanOrEqual(100);
       expect(result.duration).toBeLessThan(200); // Allow some variance
+    });
+  });
+
   describe('queryBase', () => {
     it('should execute Base query successfully', async () => {
       const mockQuery = {
         baseId: 'base123',
         filters: MockData.queries.filters,
         limit: 10
+      };
+      const mockResult = {
         records: MockData.base.records,
         hasMore: false,
         totalCount: 3
+      };
       vi.spyOn(adapter as any, 'executeBaseQuery').mockResolvedValue(mockResult);
       const result = await adapter.queryBase(mockQuery);
       expect(result).toEqual(mockResult);
+    });
+
     it('should handle query errors', async () => {
+      const mockQuery = {
+        baseId: 'base123',
         filters: []
+      };
       const mockError = new Error('Query failed');
       vi.spyOn(adapter as any, 'executeBaseQuery').mockRejectedValue(mockError);
       await expect(adapter.queryBase(mockQuery)).rejects.toThrow(JiraBasesAdapterError);
+    });
+  });
+
   describe('queryJira', () => {
     it('should execute Jira search successfully', async () => {
       const mockSearchRequest = {
         jql: 'project = TEST AND status = "In Progress"',
         maxResults: 50,
         fields: ['summary', 'description', 'assignee']
+      };
       const mockResult = MockData.jira.searchResult;
       vi.spyOn(adapter as any, 'executeJiraSearch').mockResolvedValue(mockResult);
       const result = await adapter.queryJira(mockSearchRequest);
+      expect(result).toEqual(mockResult);
+    });
+
     it('should handle search errors', async () => {
+      const mockSearchRequest = {
         jql: 'invalid jql query',
         maxResults: 50
+      };
       const mockError = new Error('Invalid JQL');
       vi.spyOn(adapter as any, 'executeJiraSearch').mockRejectedValue(mockError);
       await expect(adapter.queryJira(mockSearchRequest)).rejects.toThrow(JiraBasesAdapterError);
+    });
+  });
+
   describe('Error Handling', () => {
     it('should create JiraBasesAdapterError with proper context', () => {
       const error = new JiraBasesAdapterError(
@@ -281,33 +329,51 @@ describe('JiraBasesAdapter', () => {
         'TEST_ERROR',
         true,
         { testData: 'value' }
+      );
       expect(error.message).toBe('Test error');
       expect(error.code).toBe('TEST_ERROR');
       expect(error.retryable).toBe(true);
       expect(error.context).toEqual({ testData: 'value' });
       expect(error.name).toBe('JiraBasesAdapterError');
+    });
+
     it('should handle unknown errors gracefully', () => {
       const result = (adapter as any).handleError('TEST_OPERATION', {});
-          code: 'UNKNOWN_ERROR'
+      expect(result).toMatchObject({
+        code: 'UNKNOWN_ERROR'
+      });
+    });
+  });
+
   describe('Configuration Validation', () => {
     it('should validate URL format', () => {
       const configWithInvalidUrl = {
         ...mockConfig,
         jiraBaseUrl: 'not-a-valid-url'
+      };
       // This test assumes URL validation is implemented
       // Currently, the adapter doesn't validate URL format
       expect(() => new JiraBasesAdapter(configWithInvalidUrl)).not.toThrow();
+    });
+
     it('should set default values for optional configuration', () => {
       const minimalConfig = {
         jiraBaseUrl: 'https://test.atlassian.net',
         username: 'test@example.com',
         apiToken: 'test-token',
         fieldMappings: {}
+      };
       const adapter = new JiraBasesAdapter(minimalConfig);
+      expect(adapter).toBeDefined();
+    });
+  });
+
   describe('Private Method Testing', () => {
     it('should generate proper Base record ID', () => {
       const recordId = (adapter as any).generateBaseRecordId('TEST-123');
       expect(recordId).toBe('jira_test-123');
+    });
+
     it('should merge properties correctly', () => {
       const existing = { prop1: 'value1', prop2: 'value2' };
       const updated = { prop2: 'newValue2', prop3: 'value3' };
@@ -316,9 +382,14 @@ describe('JiraBasesAdapter', () => {
         prop1: 'value1',
         prop2: 'newValue2',
         prop3: 'value3'
+      });
+    });
+
     it('should validate Jira issue correctly', () => {
       const validIssue = MockData.jira.issue;
       const invalidIssue = { ...validIssue, key: '' };
       expect(() => (adapter as any).validateJiraIssue(validIssue)).not.toThrow();
       expect(() => (adapter as any).validateJiraIssue(invalidIssue)).toThrow(JiraBasesAdapterError);
+    });
+  });
 });

@@ -83,9 +83,9 @@ export interface ValidationSuggestion {
 }
 
 export class ResolutionValidator {
-  private validationRules: ValidationRule[] = [];
-  private fieldConstraints: Map<string, FieldConstraint> = new Map();
-  private businessRules: BusinessRule[] = [];
+  private readonly validationRules: ValidationRule[] = [];
+  private readonly fieldConstraints: Map<string, FieldConstraint> = new Map();
+  private readonly businessRules: BusinessRule[] = [];
 
   constructor() {
     this.initializeDefaultRules();
@@ -382,7 +382,7 @@ export class ResolutionValidator {
         if (typeof value === 'string') {
           const constraint = context?.fieldConstraints?.get(field);
           if (constraint?.maxLength && value.length > constraint.maxLength) {
-            return value.substring(0, constraint.maxLength - 3) + '...';
+            return `${value.substring(0, constraint.maxLength - 3)  }...`;
           }
         }
         return value;
@@ -621,7 +621,7 @@ export class ResolutionValidator {
         const status = allFields.get('status');
         const assignee = allFields.get('assignee');
 
-        if (status && status.toLowerCase().includes('progress')) {
+        if (status?.toLowerCase().includes('progress')) {
           return assignee && assignee !== 'Unassigned';
         }
         return true;

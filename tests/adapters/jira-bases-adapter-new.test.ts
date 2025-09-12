@@ -83,17 +83,25 @@ describe('JiraBasesAdapter Enhanced Tests', () => {
         m.jiraFieldId in mockConfig.fieldMappings
       );
       expect(configMapping).toBeDefined();
+    });
+
     it('should provide methods for mapping management', () => {
       expect(typeof adapter.getFieldMappings).toBe('function');
       expect(typeof adapter.setFieldMapping).toBe('function');
       expect(typeof adapter.removeFieldMapping).toBe('function');
       expect(typeof adapter.testFieldMapping).toBe('function');
       expect(typeof adapter.validateProperties).toBe('function');
+    });
+  });
+
   describe('Error Handling', () => {
     it('should throw error when not initialized', async () => {
       const uninitializedAdapter = new JiraBasesAdapter(mockConfig);
       await expect(uninitializedAdapter.testFieldMapping({}))
         .rejects.toThrow('not initialized');
+    });
+  });
+
   describe('Configuration Validation', () => {
     it('should validate required config fields', () => {
       expect(() => new JiraBasesAdapter({} as any)).toThrow();
@@ -101,4 +109,5 @@ describe('JiraBasesAdapter Enhanced Tests', () => {
     it('should accept valid configuration', () => {
       expect(() => new JiraBasesAdapter(mockConfig)).not.toThrow();
     });
+  });
 });

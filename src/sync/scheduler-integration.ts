@@ -56,10 +56,10 @@ const DEFAULT_INTEGRATION_CONFIG: Required<SchedulerIntegrationConfig> = {
  * Manages integration between AutoSyncScheduler and Obsidian plugin
  */
 export class SchedulerIntegration {
-  private plugin: Plugin;
+  private readonly plugin: Plugin;
   private scheduler: AutoSyncScheduler | null = null;
-  private jiraClient: JiraClient;
-  private config: Required<SchedulerIntegrationConfig>;
+  private readonly jiraClient: JiraClient;
+  private readonly config: Required<SchedulerIntegrationConfig>;
   
   // State tracking
   private statusUpdateTimer: NodeJS.Timeout | null = null;

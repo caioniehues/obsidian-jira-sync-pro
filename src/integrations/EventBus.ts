@@ -119,10 +119,10 @@ export interface EventSubscription {
  * EventBus - Manages event communication between Jira Sync Pro and integrated plugins
  */
 export class EventBus extends EventEmitter {
-  private subscriptions: Map<string, EventSubscription> = new Map();
+  private readonly subscriptions: Map<string, EventSubscription> = new Map();
   private subscriptionCounter: number = 0;
   private eventHistory: Array<{ event: string; payload: any; timestamp: number }> = [];
-  private maxHistorySize: number = 100;
+  private readonly maxHistorySize: number = 100;
 
   constructor() {
     super();
@@ -203,7 +203,7 @@ export class EventBus extends EventEmitter {
   /**
    * Wait for an event (promise-based)
    */
-  waitForEvent(event: string, timeout?: number): Promise<any> {
+  async waitForEvent(event: string, timeout?: number): Promise<any> {
     return new Promise((resolve, reject) => {
       const timer = timeout ? setTimeout(() => {
         this.removeListener(event, handler);
@@ -453,7 +453,7 @@ export class EventBus extends EventEmitter {
       }
       
       // Check routing information
-      if (payload._routing && payload._routing.routed) {
+      if (payload._routing?.routed) {
         return payload._routing.targets.includes(pluginId);
       }
       

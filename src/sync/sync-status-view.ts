@@ -88,14 +88,14 @@ export interface DashboardOptions {
  * and controls for managing sync operations within the Obsidian workspace.
  */
 export class SyncStatusView extends ItemView {
-  private plugin: Plugin;
+  private readonly plugin: Plugin;
   private scheduler: AutoSyncScheduler | null;
   private bulkImportManager: BulkImportManager | null;
   private queryEngine: JQLQueryEngine | null;
   
   // Dashboard state
   private statistics: DashboardSyncStatistics;
-  private options: DashboardOptions;
+  private readonly options: DashboardOptions;
   private refreshInterval: NodeJS.Timeout | null = null;
   private isVisible: boolean = false;
   
@@ -534,14 +534,14 @@ export class SyncStatusView extends ItemView {
       text: '🔄 Refresh',
       cls: 'control-button'
     });
-    refreshBtn.addEventListener('click', () => this.refreshDashboard());
+    refreshBtn.addEventListener('click', async () => this.refreshDashboard());
     
     // Manual sync button
     const syncBtn = buttonGroup.createEl('button', { 
       text: '▶️ Sync Now',
       cls: 'control-button primary'
     });
-    syncBtn.addEventListener('click', () => this.triggerManualSync());
+    syncBtn.addEventListener('click', async () => this.triggerManualSync());
     
     if (this.statistics.currentStatus === 'syncing') {
       syncBtn.disabled = true;
@@ -663,7 +663,7 @@ export class SyncStatusView extends ItemView {
       this.refreshDashboard();
     } catch (error) {
       console.error('Manual sync failed:', error);
-      new Notice('Manual sync failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      new Notice(`Manual sync failed: ${  error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 

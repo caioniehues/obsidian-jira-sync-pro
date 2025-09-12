@@ -49,10 +49,10 @@ export interface SyncStatistics {
  * Auto-sync scheduler for periodic JQL query execution
  */
 export class AutoSyncScheduler {
-  private plugin: Plugin;
-  private queryEngine: JQLQueryEngine;
+  private readonly plugin: Plugin;
+  private readonly queryEngine: JQLQueryEngine;
   private config: AutoSyncConfig;
-  private syncCallback: (options: SyncCallbackOptions) => Promise<void>;
+  private readonly syncCallback: (options: SyncCallbackOptions) => Promise<void>;
   private intervalId: NodeJS.Timeout | null = null;
   private retryTimeoutId: NodeJS.Timeout | null = null;
   private running: boolean = false;

@@ -3,7 +3,7 @@
  * Defines the contract for converting Jira issues to plugin-specific formats
  */
 
-import { JiraIssue, JiraStatus, JiraPriority } from '../types/jira-types';
+import { JiraIssue, JiraPriority } from '../types/jira-types';
 import { EventBus } from '../events/event-bus';
 
 export interface AdapterConfig {
@@ -194,7 +194,7 @@ export abstract class PluginAdapterBase<
 
     for (let i = 0; i < issues.length; i += batchSize) {
       const batch = issues.slice(i, i + batchSize);
-      const batchPromises = batch.map(issue =>
+      const batchPromises = batch.map(async issue =>
         this.syncIssueToPlugin(issue, context)
       );
       const batchResults = await Promise.all(batchPromises);
@@ -289,8 +289,8 @@ export abstract class PluginAdapterBase<
  * Registry for managing plugin adapters
  */
 export class AdapterRegistry {
-  private adapters: Map<string, PluginAdapterBase> = new Map();
-  private eventBus: EventBus;
+  private readonly adapters: Map<string, PluginAdapterBase> = new Map();
+  private readonly eventBus: EventBus;
 
   constructor(eventBus: EventBus) {
     this.eventBus = eventBus;
@@ -400,7 +400,7 @@ export class AdapterRegistry {
    * Dispose all adapters
    */
   async dispose(): Promise<void> {
-    const disposePromises = this.getAll().map(adapter => adapter.dispose());
+    const disposePromises = this.getAll().map(async adapter => adapter.dispose());
     await Promise.all(disposePromises);
     this.adapters.clear();
   }

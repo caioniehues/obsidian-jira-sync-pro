@@ -535,7 +535,7 @@ export class SettingsTransform {
    */
   static migrate(settings: any, fromVersion: string): JQLAutoSyncSettings {
     // Start with defaults
-    let migratedSettings = { ...DEFAULT_JQL_SETTINGS };
+    const migratedSettings = { ...DEFAULT_JQL_SETTINGS };
     
     if (!settings) return migratedSettings;
     

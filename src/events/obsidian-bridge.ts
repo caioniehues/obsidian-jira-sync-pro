@@ -31,10 +31,10 @@ interface EventPerformanceData {
 }
 
 export class JiraEventBus extends EventEmitter {
-  private plugin: Plugin;
-  private subscriptions: Map<string, EventSubscription[]> = new Map();
+  private readonly plugin: Plugin;
+  private readonly subscriptions: Map<string, EventSubscription[]> = new Map();
   private performanceData: EventPerformanceData[] = [];
-  private maxPerformanceEntries: number = 1000;
+  private readonly maxPerformanceEntries: number = 1000;
   private debugLogging: boolean = false;
 
   constructor(plugin: Plugin) {

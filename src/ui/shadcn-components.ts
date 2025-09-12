@@ -62,11 +62,11 @@ export abstract class ShadcnComponent {
  * Card component with shadcn styling
  */
 export class Card extends ShadcnComponent {
-  private title: string;
-  private description?: string;
-  private content?: HTMLElement | string;
-  private footer?: HTMLElement | string;
-  private actions?: Array<{ label: string; onClick: () => void; variant?: 'primary' | 'secondary' | 'destructive' }>;
+  private readonly title: string;
+  private readonly description?: string;
+  private readonly content?: HTMLElement | string;
+  private readonly footer?: HTMLElement | string;
+  private readonly actions?: Array<{ label: string; onClick: () => void; variant?: 'primary' | 'secondary' | 'destructive' }>;
 
   constructor(
     containerEl: HTMLElement,
@@ -176,12 +176,12 @@ export class Card extends ShadcnComponent {
  * Button component with shadcn styling
  */
 export class Button extends ShadcnComponent {
-  private label: string;
-  private onClick: () => void;
-  private variant: 'primary' | 'secondary' | 'destructive' | 'outline' | 'ghost';
-  private size: 'sm' | 'md' | 'lg';
-  private disabled: boolean;
-  private icon?: string;
+  private readonly label: string;
+  private readonly onClick: () => void;
+  private readonly variant: 'primary' | 'secondary' | 'destructive' | 'outline' | 'ghost';
+  private readonly size: 'sm' | 'md' | 'lg';
+  private readonly disabled: boolean;
+  private readonly icon?: string;
 
   constructor(
     containerEl: HTMLElement,
@@ -293,10 +293,10 @@ export class Button extends ShadcnComponent {
  */
 export class Progress extends ShadcnComponent {
   private value: number;
-  private max: number;
-  private showLabel: boolean;
-  private color?: string;
-  private animated: boolean;
+  private readonly max: number;
+  private readonly showLabel: boolean;
+  private readonly color?: string;
+  private readonly animated: boolean;
 
   constructor(
     containerEl: HTMLElement,
@@ -361,12 +361,12 @@ export class Progress extends ShadcnComponent {
  * Alert component with shadcn styling
  */
 export class Alert extends ShadcnComponent {
-  private title: string;
-  private description?: string;
-  private variant: 'default' | 'destructive' | 'warning' | 'success';
-  private icon?: string;
-  private dismissible: boolean;
-  private onDismiss?: () => void;
+  private readonly title: string;
+  private readonly description?: string;
+  private readonly variant: 'default' | 'destructive' | 'warning' | 'success';
+  private readonly icon?: string;
+  private readonly dismissible: boolean;
+  private readonly onDismiss?: () => void;
 
   constructor(
     containerEl: HTMLElement,
@@ -494,8 +494,8 @@ export class Alert extends ShadcnComponent {
  * Badge component with shadcn styling
  */
 export class Badge extends ShadcnComponent {
-  private text: string;
-  private variant: 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning';
+  private readonly text: string;
+  private readonly variant: 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning';
 
   constructor(
     containerEl: HTMLElement,
@@ -563,9 +563,9 @@ export class Badge extends ShadcnComponent {
  * Tabs component with shadcn styling
  */
 export class Tabs extends ShadcnComponent {
-  private tabs: Array<{ id: string; label: string; content: HTMLElement | string }>;
+  private readonly tabs: Array<{ id: string; label: string; content: HTMLElement | string }>;
   private activeTab: string;
-  private onTabChange?: (tabId: string) => void;
+  private readonly onTabChange?: (tabId: string) => void;
 
   constructor(
     containerEl: HTMLElement,

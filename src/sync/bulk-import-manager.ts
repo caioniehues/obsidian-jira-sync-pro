@@ -57,9 +57,9 @@ export interface BulkImportResult {
  * - Memory management for large imports
  */
 export class BulkImportManager {
-  private plugin: Plugin;
-  private queryEngine: JQLQueryEngine;
-  private syncFolder: string;
+  private readonly plugin: Plugin;
+  private readonly queryEngine: JQLQueryEngine;
+  private readonly syncFolder: string;
   private isImporting: boolean = false;
   private shouldCancel: boolean = false;
   private shouldPause: boolean = false;
@@ -134,7 +134,7 @@ export class BulkImportManager {
       const syncError: SyncError = {
         code: 'BULK_IMPORT_FAILED',
         message: error instanceof Error ? error.message : String(error),
-        phase: this.currentProgress?.phase || SyncPhase.ERROR,
+        phase: ((this.currentProgress?.phase) != null) || SyncPhase.ERROR,
         timestamp: Date.now(),
         retryAttempt: 0,
         maxRetries: 3
@@ -412,7 +412,7 @@ export class BulkImportManager {
     options: BulkImportOptions
   ): Promise<'created' | 'updated' | 'skipped'> {
     // Validate ticket data
-    if (!ticket.fields || !ticket.fields.summary) {
+    if (!ticket.fields?.summary) {
       throw new Error('Invalid ticket data: missing fields or summary');
     }
 

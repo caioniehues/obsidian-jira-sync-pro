@@ -66,12 +66,12 @@ export interface EventMetrics {
 }
 
 export class EventPublisher extends EventEmitter {
-  private plugin: Plugin;
-  private vault: Vault;
-  private subscriptions: Map<string, EventSubscription> = new Map();
+  private readonly plugin: Plugin;
+  private readonly vault: Vault;
+  private readonly subscriptions: Map<string, EventSubscription> = new Map();
   private eventHistory: EventPayload[] = [];
-  private metrics: EventMetrics;
-  private maxHistorySize: number = 1000;
+  private readonly metrics: EventMetrics;
+  private readonly maxHistorySize: number = 1000;
   private correlationCounter: number = 0;
 
   constructor(plugin: Plugin, options: { maxHistorySize?: number } = {}) {
@@ -697,7 +697,7 @@ export function createEventPublisher(
 export function createTypedHandler<T>(
   handler: (data: T, metadata: EventMetadata) => void | Promise<void>
 ): (payload: EventPayload<T>) => void | Promise<void> {
-  return payload => handler(payload.data, payload.metadata);
+  return async payload => handler(payload.data, payload.metadata);
 }
 
 /**

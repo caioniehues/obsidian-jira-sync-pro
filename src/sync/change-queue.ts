@@ -18,9 +18,9 @@ export interface QueuedChange {
 }
 
 export class ChangeQueue {
-  private plugin: Plugin;
-  private queue: Map<string, QueuedChange> = new Map();
-  private eventManager: EventManager;
+  private readonly plugin: Plugin;
+  private readonly queue: Map<string, QueuedChange> = new Map();
+  private readonly eventManager: EventManager;
   private readonly STORAGE_KEY = 'jira-sync-change-queue';
   private readonly MAX_RETRIES = 3;
   private readonly RETRY_DELAY = [1000, 2000, 4000, 8000]; // Exponential backoff
@@ -36,7 +36,7 @@ export class ChangeQueue {
   async load(): Promise<void> {
     try {
       const data = await this.plugin.loadData();
-      if (data && data[this.STORAGE_KEY]) {
+      if (data?.[this.STORAGE_KEY]) {
         const queueData = data[this.STORAGE_KEY] as QueuedChange[];
         for (const change of queueData) {
           this.queue.set(change.id, change);

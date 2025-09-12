@@ -24,12 +24,12 @@ export class TasksAdapter extends PluginAdapterBase<
   TaskItem,
   TasksAdapterConfig
 > {
-  private converter: TaskFormatConverter;
+  private readonly converter: TaskFormatConverter;
   private tasksPlugin: unknown; // Tasks plugin instance
-  private vault: Vault;
-  private metadataCache: MetadataCache;
-  private taskMappings: Map<string, JiraTaskMapping> = new Map();
-  private app: App;
+  private readonly vault: Vault;
+  private readonly metadataCache: MetadataCache;
+  private readonly taskMappings: Map<string, JiraTaskMapping> = new Map();
+  private readonly app: App;
 
   constructor(config: TasksAdapterConfig, eventBus: EventBus, app: App) {
     super(config, eventBus);

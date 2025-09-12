@@ -55,10 +55,10 @@ export interface ConnectionStatus {
  * Adapter for connecting to Obsidian's Base plugin API
  */
 export class BasesApiAdapter {
-  private config: BasesApiConfig;
+  private readonly config: BasesApiConfig;
   private client!: BaseOperationsClient;
-  private cache = new Map<string, { data: any; timestamp: Date }>();
-  private logger: Console;
+  private readonly cache = new Map<string, { data: unknown; timestamp: Date }>();
+  private readonly logger: Console;
 
   constructor(config: BasesApiConfig) {
     this.config = {
@@ -80,11 +80,11 @@ export class BasesApiAdapter {
   private initializeClient(): void {
     const connection: BaseConnection = createBaseConnection(
       this.config.obsidianApiEndpoint,
-      this.config.authToken || '',
+      this.config.authToken ?? '',
       {
-        timeout: this.config.timeout!,
-        retryAttempts: this.config.retryAttempts!,
-        rateLimitDelay: this.config.rateLimitDelay!,
+        timeout: this.config.timeout ?? 30000,
+        retryAttempts: this.config.retryAttempts ?? 3,
+        rateLimitDelay: this.config.rateLimitDelay ?? 1000,
       }
     );
 
@@ -100,7 +100,7 @@ export class BasesApiAdapter {
 
       const healthResult = await this.client.testConnection();
 
-      if (!healthResult.success) {
+      if (healthResult.success !== true) {
         return {
           success: false,
           errors: [
@@ -115,11 +115,11 @@ export class BasesApiAdapter {
 
       // Get available bases
       const basesResult = await this.getAvailableBases();
-      const availableBases = basesResult.success ? basesResult.data! : [];
+      const availableBases = (basesResult.success === true && basesResult.data !== undefined && basesResult.data !== null) ? basesResult.data : [];
 
       const status: ConnectionStatus = {
         connected: true,
-        apiVersion: healthResult.data?.version || '1.0.0',
+        apiVersion: healthResult.data?.version ?? '1.0.0',
         basePluginVersion: await this.getBasePluginVersion(),
         workspaceId: this.config.workspaceId,
         availableBases: availableBases.map(b => b.id),
@@ -140,7 +140,7 @@ export class BasesApiAdapter {
         errors: [
           {
             property: 'connection',
-            message: (error as Error)?.message || 'Unknown connection error',
+            message: (error as Error)?.message ?? 'Unknown connection error',
             code: 'CONNECTION_ERROR',
           },
         ],
@@ -155,9 +155,9 @@ export class BasesApiAdapter {
     try {
       const cacheKey = `available_bases_${this.config.workspaceId}`;
 
-      if (this.config.enableCache) {
+      if (this.config.enableCache === true) {
         const cached = this.getCachedData(cacheKey);
-        if (cached) {
+        if (cached !== null && cached !== undefined) {
           return {
             success: true,
             data: cached,
@@ -179,7 +179,7 @@ export class BasesApiAdapter {
         }>;
       }>('GET', `/workspaces/${this.config.workspaceId}/bases`);
 
-      if (!response.success) {
+      if (response.success !== true) {
         return {
           success: false,
           errors: [
@@ -194,7 +194,7 @@ export class BasesApiAdapter {
 
       const bases: ObsidianBaseInfo[] = [];
 
-      for (const baseInfo of response.data?.bases || []) {
+      for (const baseInfo of response.data?.bases ?? []) {
         // Get schema for each base
         const schemaResult = await this.client.getBaseSchema(baseInfo.id);
 
@@ -202,8 +202,8 @@ export class BasesApiAdapter {
           id: baseInfo.id,
           name: baseInfo.name,
           path: baseInfo.path,
-          schema: schemaResult.success
-            ? schemaResult.data!
+          schema: (schemaResult.success === true && schemaResult.data !== undefined && schemaResult.data !== null)
+            ? schemaResult.data
             : this.createEmptySchema(baseInfo.id, baseInfo.name),
           recordCount: baseInfo.recordCount,
           lastModified: new Date(baseInfo.lastModified),
@@ -213,7 +213,7 @@ export class BasesApiAdapter {
         bases.push(base);
       }
 
-      if (this.config.enableCache) {
+      if (this.config.enableCache === true) {
         this.setCachedData(cacheKey, bases);
       }
 
@@ -230,7 +230,7 @@ export class BasesApiAdapter {
           {
             property: 'operation',
             message:
-              (error as Error)?.message || 'Failed to get available bases',
+              (error as Error)?.message ?? 'Failed to get available bases',
             code: 'GET_BASES_ERROR',
           },
         ],
@@ -247,9 +247,9 @@ export class BasesApiAdapter {
     try {
       const cacheKey = `schema_${baseId}`;
 
-      if (this.config.enableCache) {
+      if (this.config.enableCache === true) {
         const cached = this.getCachedData(cacheKey);
-        if (cached) {
+        if (cached !== null && cached !== undefined) {
           return {
             success: true,
             data: cached,
@@ -261,7 +261,7 @@ export class BasesApiAdapter {
 
       const result = await this.client.getBaseSchema(baseId);
 
-      if (result.success && this.config.enableCache) {
+      if (result.success === true && this.config.enableCache === true) {
         this.setCachedData(cacheKey, result.data);
       }
 
@@ -272,7 +272,7 @@ export class BasesApiAdapter {
         errors: [
           {
             property: 'baseId',
-            message: (error as Error)?.message || 'Failed to get base schema',
+            message: (error as Error)?.message ?? 'Failed to get base schema',
             code: 'GET_SCHEMA_ERROR',
           },
         ],
@@ -293,19 +293,19 @@ export class BasesApiAdapter {
       // Ensure record has required fields
       const fullRecord: Partial<BaseRecord> = {
         ...recordData,
-        id: recordData.id || generateRecordId('obsidian'),
+        id: recordData.id ?? generateRecordId('obsidian'),
         baseId,
-        createdAt: recordData.createdAt || new Date(),
-        updatedAt: recordData.updatedAt || new Date(),
+        createdAt: recordData.createdAt ?? new Date(),
+        updatedAt: recordData.updatedAt ?? new Date(),
       };
 
       const result = await this.client.createRecord(baseId, fullRecord);
 
-      if (result.success) {
+      if (result.success === true) {
         // Invalidate cache for this base
         this.invalidateBaseCache(baseId);
 
-        this.logger.log(`Record created successfully: ${result.data?.id}`);
+        this.logger.log(`Record created successfully: ${result.data?.id ?? 'unknown'}`);
       }
 
       return result;
@@ -315,7 +315,7 @@ export class BasesApiAdapter {
         errors: [
           {
             property: 'record',
-            message: (error as Error)?.message || 'Failed to create record',
+            message: (error as Error)?.message ?? 'Failed to create record',
             code: 'CREATE_RECORD_ERROR',
           },
         ],
@@ -336,7 +336,7 @@ export class BasesApiAdapter {
 
       const result = await this.client.updateRecord(baseId, recordId, updates);
 
-      if (result.success) {
+      if (result.success === true) {
         // Invalidate cache for this base
         this.invalidateBaseCache(baseId);
 
@@ -350,7 +350,7 @@ export class BasesApiAdapter {
         errors: [
           {
             property: 'record',
-            message: (error as Error)?.message || 'Failed to update record',
+            message: (error as Error)?.message ?? 'Failed to update record',
             code: 'UPDATE_RECORD_ERROR',
           },
         ],
@@ -370,7 +370,7 @@ export class BasesApiAdapter {
 
       const result = await this.client.deleteRecord(baseId, recordId);
 
-      if (result.success) {
+      if (result.success === true) {
         // Invalidate cache for this base
         this.invalidateBaseCache(baseId);
 
@@ -384,7 +384,7 @@ export class BasesApiAdapter {
         errors: [
           {
             property: 'record',
-            message: (error as Error)?.message || 'Failed to delete record',
+            message: (error as Error)?.message ?? 'Failed to delete record',
             code: 'DELETE_RECORD_ERROR',
           },
         ],
@@ -416,9 +416,9 @@ export class BasesApiAdapter {
 
       const result = await this.client.queryRecords(query);
 
-      if (result.success) {
+      if (result.success === true) {
         this.logger.log(
-          `Query returned ${result.data?.records.length || 0} records`
+          `Query returned ${result.data?.records.length ?? 0} records`
         );
       }
 
@@ -429,7 +429,7 @@ export class BasesApiAdapter {
         errors: [
           {
             property: 'query',
-            message: (error as Error)?.message || 'Failed to query records',
+            message: (error as Error)?.message ?? 'Failed to query records',
             code: 'QUERY_RECORDS_ERROR',
           },
         ],
@@ -454,7 +454,7 @@ export class BasesApiAdapter {
         errors: [
           {
             property: 'record',
-            message: (error as Error)?.message || 'Failed to get record',
+            message: (error as Error)?.message ?? 'Failed to get record',
             code: 'GET_RECORD_ERROR',
           },
         ],
@@ -477,20 +477,20 @@ export class BasesApiAdapter {
       // Ensure all records have required fields
       const fullRecords = records.map(record => ({
         ...record,
-        id: record.id || generateRecordId('obsidian'),
+        id: record.id ?? generateRecordId('obsidian'),
         baseId,
-        createdAt: record.createdAt || new Date(),
-        updatedAt: record.updatedAt || new Date(),
+        createdAt: record.createdAt ?? new Date(),
+        updatedAt: record.updatedAt ?? new Date(),
       }));
 
       const result = await this.client.batchCreateRecords(baseId, fullRecords);
 
-      if (result.success) {
+      if (result.success === true) {
         // Invalidate cache for this base
         this.invalidateBaseCache(baseId);
 
         this.logger.log(
-          `Batch created ${result.data?.length || 0} records successfully`
+          `Batch created ${result.data?.length ?? 0} records successfully`
         );
       }
 
@@ -502,7 +502,7 @@ export class BasesApiAdapter {
           {
             property: 'records',
             message:
-              (error as Error)?.message || 'Failed to batch create records',
+              (error as Error)?.message ?? 'Failed to batch create records',
             code: 'BATCH_CREATE_ERROR',
           },
         ],
@@ -515,7 +515,7 @@ export class BasesApiAdapter {
    */
   async batchUpdateRecords(
     baseId: string,
-    updates: Array<{ id: string; properties: Record<string, any> }>
+    updates: Array<{ id: string; properties: Record<string, unknown> }>
   ): Promise<BaseOperationResult<BaseRecord[]>> {
     try {
       this.logger.log(
@@ -524,12 +524,12 @@ export class BasesApiAdapter {
 
       const result = await this.client.batchUpdateRecords(baseId, updates);
 
-      if (result.success) {
+      if (result.success === true) {
         // Invalidate cache for this base
         this.invalidateBaseCache(baseId);
 
         this.logger.log(
-          `Batch updated ${result.data?.length || 0} records successfully`
+          `Batch updated ${result.data?.length ?? 0} records successfully`
         );
       }
 
@@ -541,7 +541,7 @@ export class BasesApiAdapter {
           {
             property: 'updates',
             message:
-              (error as Error)?.message || 'Failed to batch update records',
+              (error as Error)?.message ?? 'Failed to batch update records',
             code: 'BATCH_UPDATE_ERROR',
           },
         ],
@@ -560,17 +560,17 @@ export class BasesApiAdapter {
     try {
       // Test basic connectivity
       const connectionResult = await this.testConnection();
-      if (!connectionResult.success) {
+      if (connectionResult.success !== true) {
         issues.push('Cannot connect to Obsidian Base plugin');
       }
 
       // Validate workspace access
-      if (!this.config.workspaceId) {
+      if (this.config.workspaceId === undefined || this.config.workspaceId === '') {
         issues.push('Workspace ID is required');
       }
 
       // Test API endpoint
-      if (!this.config.obsidianApiEndpoint) {
+      if (this.config.obsidianApiEndpoint === undefined || this.config.obsidianApiEndpoint === '') {
         issues.push('Obsidian API endpoint is required');
       }
 
@@ -595,7 +595,7 @@ export class BasesApiAdapter {
           {
             property: 'configuration',
             message:
-              (error as Error)?.message || 'Configuration validation failed',
+              (error as Error)?.message ?? 'Configuration validation failed',
             code: 'VALIDATION_ERROR',
           },
         ],
@@ -608,7 +608,7 @@ export class BasesApiAdapter {
   private async makeObsidianApiCall<T>(
     method: string,
     endpoint: string,
-    data?: any
+    data?: unknown
   ): Promise<BaseOperationResult<T>> {
     try {
       const url = `${this.config.obsidianApiEndpoint}${endpoint}`;
@@ -616,16 +616,16 @@ export class BasesApiAdapter {
         method,
         headers: {
           'Content-Type': 'application/json',
-          Authorization: this.config.authToken
+          Authorization: (this.config.authToken !== undefined && this.config.authToken !== null && this.config.authToken !== '')
             ? `Bearer ${this.config.authToken}`
             : '',
           'User-Agent': 'BasesApiAdapter/1.0.0',
         },
-        signal: AbortSignal.timeout(this.config.timeout!),
+        signal: AbortSignal.timeout(this.config.timeout ?? 30000),
       };
 
       if (
-        data &&
+        (data !== undefined && data !== null) &&
         (method === 'POST' || method === 'PATCH' || method === 'PUT')
       ) {
         options.body = JSON.stringify(data);
@@ -645,8 +645,8 @@ export class BasesApiAdapter {
           errors: [
             {
               property: 'api',
-              message: responseData.error?.message || response.statusText,
-              code: responseData.error?.code || `HTTP_${response.status}`,
+              message: responseData.error?.message ?? response.statusText,
+              code: responseData.error?.code ?? `HTTP_${response.status}`,
             },
           ],
         };
@@ -657,7 +657,7 @@ export class BasesApiAdapter {
         errors: [
           {
             property: 'network',
-            message: (error as Error)?.message || 'Network request failed',
+            message: (error as Error)?.message ?? 'Network request failed',
             code: 'NETWORK_ERROR',
           },
         ],
@@ -671,7 +671,7 @@ export class BasesApiAdapter {
         'GET',
         '/plugins/base/version'
       );
-      return response.success ? response.data?.version || '1.0.0' : '1.0.0';
+      return (response.success === true) ? response.data?.version ?? '1.0.0' : '1.0.0';
     } catch (error) {
       this.logger.warn('Could not get Base plugin version:', error);
       return '1.0.0';
@@ -690,16 +690,16 @@ export class BasesApiAdapter {
     };
   }
 
-  private getCachedData(key: string): any {
-    if (!this.config.enableCache) return null;
+  private getCachedData(key: string): unknown {
+    if (this.config.enableCache !== true) return null;
 
     const cached = this.cache.get(key);
-    if (!cached) return null;
+    if (cached === undefined) return null;
 
     const now = new Date();
     const age = now.getTime() - cached.timestamp.getTime();
 
-    if (age > this.config.cacheTimeout!) {
+    if (age > (this.config.cacheTimeout ?? 300000)) {
       this.cache.delete(key);
       return null;
     }
@@ -707,8 +707,8 @@ export class BasesApiAdapter {
     return cached.data;
   }
 
-  private setCachedData(key: string, data: any): void {
-    if (!this.config.enableCache) return;
+  private setCachedData(key: string, data: unknown): void {
+    if (this.config.enableCache !== true) return;
 
     this.cache.set(key, {
       data,
@@ -717,7 +717,7 @@ export class BasesApiAdapter {
   }
 
   private invalidateBaseCache(baseId: string): void {
-    if (!this.config.enableCache) return;
+    if (this.config.enableCache !== true) return;
 
     const keysToDelete: string[] = [];
     for (const key of this.cache.keys()) {
@@ -768,7 +768,7 @@ export function createBasesApiAdapter(
   const config: BasesApiConfig = {
     obsidianApiEndpoint,
     workspaceId,
-    authToken: authToken || undefined,
+    authToken: authToken ?? undefined,
     timeout: 30000,
     retryAttempts: 3,
     rateLimitDelay: 1000,
@@ -785,23 +785,23 @@ export function createBasesApiAdapter(
 export function validateBasesApiConfig(config: BasesApiConfig): string[] {
   const errors: string[] = [];
 
-  if (!config.obsidianApiEndpoint) {
+  if (config.obsidianApiEndpoint === undefined || config.obsidianApiEndpoint === '') {
     errors.push('Obsidian API endpoint is required');
   }
 
-  if (!config.workspaceId) {
+  if (config.workspaceId === undefined || config.workspaceId === '') {
     errors.push('Workspace ID is required');
   }
 
-  if (config.timeout && config.timeout < 1000) {
+  if (config.timeout !== undefined && config.timeout < 1000) {
     errors.push('Timeout must be at least 1000ms');
   }
 
-  if (config.retryAttempts && config.retryAttempts < 0) {
+  if (config.retryAttempts !== undefined && config.retryAttempts < 0) {
     errors.push('Retry attempts must be non-negative');
   }
 
-  if (config.cacheTimeout && config.cacheTimeout < 60000) {
+  if (config.cacheTimeout !== undefined && config.cacheTimeout < 60000) {
     errors.push('Cache timeout must be at least 60 seconds');
   }
 

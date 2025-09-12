@@ -23,8 +23,8 @@ class TokenBucket {
   private lastRefill: number;
   
   constructor(
-    private maxTokens: number,
-    private refillRate: number // tokens per millisecond
+    private readonly maxTokens: number,
+    private readonly refillRate: number // tokens per millisecond
   ) {
     this.tokens = maxTokens;
     this.lastRefill = Date.now();
@@ -108,7 +108,7 @@ export interface JiraClientConfig {
  */
 export class JiraClient {
   private config: JiraClientConfig | null = null;
-  private rateLimiter: TokenBucket;
+  private readonly rateLimiter: TokenBucket;
   
   constructor() {
     // Rate limit: 20 requests per minute (60000ms) = 1 request per 3000ms
@@ -238,7 +238,7 @@ export class JiraClient {
   /**
    * Sleep utility for rate limiting
    */
-  private sleep(ms: number): Promise<void> {
+  private async sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
@@ -365,9 +365,9 @@ export class JiraClient {
 
     // Try to extract error details from response body
     try {
-      if (response.json && response.json.errorMessages && response.json.errorMessages.length > 0) {
+      if (response.json?.errorMessages && response.json.errorMessages.length > 0) {
         error.message = response.json.errorMessages.join(', ');
-      } else if (response.json && response.json.errors && Object.keys(response.json.errors).length > 0) {
+      } else if (response.json?.errors && Object.keys(response.json.errors).length > 0) {
         error.message = Object.values(response.json.errors).join(', ');
       }
     } catch (e) {

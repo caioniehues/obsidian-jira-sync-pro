@@ -35,8 +35,8 @@ export interface EventProcessingStats {
  * with focus on optimal Dataview integration and performance tracking
  */
 export class DataviewEventHandlers {
-  private dataviewSync: DataviewSync;
-  private config: DataviewEventHandlerConfig;
+  private readonly dataviewSync: DataviewSync;
+  private readonly config: DataviewEventHandlerConfig;
   private stats: EventProcessingStats;
   private registeredHandlerIds: string[] = [];
   private processingTimes: number[] = [];

@@ -19,7 +19,7 @@ import {
 
 export interface DataviewProperty {
   key: string;
-  value: any;
+  value: unknown;
   type: DataviewPropertyType;
 }
 
@@ -34,7 +34,7 @@ export enum DataviewPropertyType {
 }
 
 export interface DataviewMappingResult {
-  properties: Record<string, any>;
+  properties: Record<string, unknown>;
   tags: string[];
   links: string[];
   processingTime: number;

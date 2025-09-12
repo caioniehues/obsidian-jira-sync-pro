@@ -32,11 +32,11 @@ interface CacheEntry<T> {
  * Provides caching, query optimization, and data transformation
  */
 export class DataProvider {
-  private cache: Map<string, CacheEntry<any>> = new Map();
+  private readonly cache: Map<string, CacheEntry<any>> = new Map();
   private defaultTTL: number = 5 * 60 * 1000; // 5 minutes default TTL
-  private plugin: JiraSyncProPlugin;
+  private readonly plugin: JiraSyncProPlugin;
   private fieldMapper: FieldMapper;
-  private batchSize: number = 10; // Max tickets per batch request
+  private readonly batchSize: number = 10; // Max tickets per batch request
   private cacheHits: number = 0;
   private cacheMisses: number = 0;
 

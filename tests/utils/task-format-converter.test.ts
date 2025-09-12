@@ -97,14 +97,23 @@ describe('TaskFormatConverter', () => {
         expect(result.task.status).toBe(expected);
       });
     it('should map Jira priority to correct TaskPriority', () => {
+      const testCases = [
         { jiraPriority: 'Lowest', expected: TaskPriority.LOW },
         { jiraPriority: 'Low', expected: TaskPriority.LOW },
         { jiraPriority: 'Medium', expected: TaskPriority.NONE },
         { jiraPriority: 'High', expected: TaskPriority.HIGH },
         { jiraPriority: 'Highest', expected: TaskPriority.HIGHEST }
+      ];
       testCases.forEach(({ jiraPriority, expected }) => {
+        const issue = createMockIssue({
+          fields: {
             priority: { name: jiraPriority }
+          }
+        });
+        const result = converter.convertJiraToTask(issue);
         expect(result.task.priority).toBe(expected);
+      });
+    });
     it('should handle due dates correctly', () => {
       const dueDate = '2024-12-31T23:59:59.000Z';
       const issue = {
@@ -440,26 +449,42 @@ This is a quote
       expect(result.throughput).toBeGreaterThan(1000);
       // Average time should be well under 10ms
       expect(result.averageTime).toBeLessThan(10);
+    });
+  });
+
   describe('Edge Cases and Error Handling', () => {
     it('should handle issues with null/undefined fields', () => {
       const issueWithNulls = {
+        ...createMockIssue(),
+        fields: {
           summary: 'Test',
           status: null,
           priority: null,
           duedate: null,
           labels: null,
           components: null
+        }
+      };
       expect(() => converter.convertJiraToTask(issueWithNulls as any)).not.toThrow();
       const result = converter.convertJiraToTask(issueWithNulls as any);
+      expect(result.task).toBeDefined();
+    });
+
     it('should handle empty strings in fields', () => {
       const issueWithEmptyStrings = {
+        ...createMockIssue(),
+        fields: {
           summary: '',
           description: '',
           status: { name: '' },
           priority: { name: '' }
+        }
+      };
       const result = converter.convertJiraToTask(issueWithEmptyStrings);
       expect(result.task.description).toBe(MockData.jira.issue.key); // Falls back to key
       expect(result.task.status).toBe(TaskStatus.TODO); // Default mapping
+    });
+
     it('should handle very long descriptions', () => {
       const longDescription = 'A'.repeat(10000);
       const issueWithLongDescription = {
@@ -473,13 +498,20 @@ This is a quote
       const result = converter.convertJiraToTask(issueWithLongDescription);
       expect(result.task.description.length).toBeGreaterThan(1000);
     });
+
     it('should handle invalid date formats gracefully', () => {
       const issueWithInvalidDates = {
+        ...createMockIssue(),
+        fields: {
+          ...createMockIssue().fields,
           duedate: 'invalid-date',
           created: 'not-a-date'
+        }
+      };
       const result = converter.convertJiraToTask(issueWithInvalidDates as any);
       expect(result.task.dueDate).toBeUndefined();
       expect(result.task.created).toBeUndefined();
+    });
     it('should preserve data integrity through round-trip conversion', () => {
       const originalIssue = MockData.jira.issue;
       // Convert to task
@@ -490,4 +522,6 @@ This is a quote
       // Verify key data is preserved
       expect(jiraResult.fields!.status?.name).toBe('To Do');
       expect(jiraResult.fields!.priority?.name).toBe('Medium');
+    });
+  });
 });

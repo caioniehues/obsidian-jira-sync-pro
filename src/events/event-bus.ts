@@ -18,8 +18,8 @@ interface RegisteredHandler<T extends JiraPluginEvent = JiraPluginEvent> {
 }
 
 export class EventBus {
-  private handlers: Map<keyof EventTypeMap, RegisteredHandler[]> = new Map();
-  private metrics: Map<string, EventMetrics> = new Map();
+  private readonly handlers: Map<keyof EventTypeMap, RegisteredHandler[]> = new Map();
+  private readonly metrics: Map<string, EventMetrics> = new Map();
   private handlerIdCounter = 0;
 
   /**

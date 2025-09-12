@@ -141,10 +141,10 @@ const SUPPORTED_PLUGINS: PluginCompatibility[] = [
  * PluginRegistry - Manages detection and registration of compatible Obsidian plugins
  */
 export class PluginRegistry {
-  private registeredPlugins: Map<string, PluginInfo> = new Map();
-  private pluginHealth: Map<string, PluginHealthStatus> = new Map();
-  private capabilityCache: Map<string, CapabilityDescriptor[]> = new Map();
-  private app: App;
+  private readonly registeredPlugins: Map<string, PluginInfo> = new Map();
+  private readonly pluginHealth: Map<string, PluginHealthStatus> = new Map();
+  private readonly capabilityCache: Map<string, CapabilityDescriptor[]> = new Map();
+  private readonly app: App;
   private healthCheckInterval: NodeJS.Timer | null = null;
 
   constructor(app: App) {

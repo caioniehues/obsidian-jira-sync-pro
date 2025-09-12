@@ -8,7 +8,7 @@ import { JQLQueryEngine } from '../enhanced-sync/jql-query-engine';
  * Manages the registration and lifecycle of sync-related views
  */
 export class SyncViewManager {
-  private plugin: Plugin;
+  private readonly plugin: Plugin;
   private statusView: SyncStatusView | null = null;
 
   constructor(plugin: Plugin) {

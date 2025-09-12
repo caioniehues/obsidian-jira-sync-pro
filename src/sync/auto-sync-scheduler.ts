@@ -128,8 +128,8 @@ const MEMORY_CHECK_INTERVAL_MS = 5000; // Check memory every 5 seconds during sy
  */
 export class AutoSyncScheduler {
   private config: AutoSyncConfig;
-  private jqlQueryEngine: JQLQueryEngine;
-  private jiraClient: JiraClient;
+  private readonly jqlQueryEngine: JQLQueryEngine;
+  private readonly jiraClient: JiraClient;
   
   // Timer management
   private syncTimer: NodeJS.Timeout | null = null;
@@ -137,7 +137,7 @@ export class AutoSyncScheduler {
   private memoryMonitorTimer: NodeJS.Timeout | null = null;
   
   // State tracking
-  private status: AutoSyncStatus;
+  private readonly status: AutoSyncStatus;
   private currentSyncAbortController: AbortController | null = null;
   private isShuttingDown: boolean = false;
   
@@ -610,7 +610,7 @@ export class AutoSyncScheduler {
     return {
       code: this.getErrorCode(error),
       message: error.message || 'Unknown error occurred',
-      phase: this.status.currentProgress?.phase || SyncPhase.ERROR,
+      phase: ((this.status.currentProgress?.phase) != null) || SyncPhase.ERROR,
       timestamp: Date.now(),
       originalError: error instanceof Error ? error : new Error(error?.toString()),
       retryAttempt,
@@ -782,7 +782,7 @@ export class AutoSyncScheduler {
   /**
    * Sleep utility
    */
-  private sleep(ms: number): Promise<void> {
+  private async sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 }

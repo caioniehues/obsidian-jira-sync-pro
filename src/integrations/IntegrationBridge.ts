@@ -7,6 +7,13 @@ import { JiraTicket } from '../models/JiraModels';
 import { IPluginAdapter, AdapterState, AdapterMetadata, HealthCheckResult } from './IPluginAdapter';
 import type JiraSyncProPlugin from '../main';
 
+// Import all adapters statically to avoid code splitting
+import { TasksPluginAdapter } from './adapters/TasksPluginAdapter';
+import { CalendarPluginAdapter } from './adapters/CalendarPluginAdapter';
+import { DayPlannerAdapter } from './adapters/DayPlannerAdapter';
+import { DataviewAdapter } from './adapters/DataviewAdapter';
+import { TemplaterAdapter } from './adapters/TemplaterAdapter';
+
 /**
  * Adapter loading configuration
  */
@@ -23,16 +30,16 @@ interface AdapterLoadConfig {
  * Manages communication between Jira Sync Pro and other Obsidian plugins
  */
 export class IntegrationBridge {
-  private eventBus: EventBus;
-  private registry: PluginRegistry;
-  private dataProvider: DataProvider;
+  private readonly eventBus: EventBus;
+  private readonly registry: PluginRegistry;
+  private readonly dataProvider: DataProvider;
   private isActive: boolean = false;
-  private adapters: Map<string, IPluginAdapter> = new Map();
-  private adapterConfigs: Map<string, AdapterLoadConfig> = new Map();
+  private readonly adapters: Map<string, IPluginAdapter> = new Map();
+  private readonly adapterConfigs: Map<string, AdapterLoadConfig> = new Map();
   private healthCheckInterval: NodeJS.Timer | null = null;
-  private routingRules: Map<string, string[]> = new Map();
+  private readonly routingRules: Map<string, string[]> = new Map();
 
-  constructor(private plugin: JiraSyncProPlugin) {
+  constructor(private readonly plugin: JiraSyncProPlugin) {
     this.eventBus = new EventBus();
     this.registry = new PluginRegistry(plugin.app);
     this.dataProvider = new DataProvider(plugin);
@@ -119,11 +126,11 @@ export class IntegrationBridge {
       
       // Try to recover the adapter
       const adapter = this.adapters.get(payload.source);
-      if (adapter && adapter.recover) {
+      if (adapter?.recover) {
         const recovered = await adapter.recover();
         if (!recovered && adapter.state === AdapterState.ERROR) {
           // Deactivate the problematic adapter
-          await this.deactivateAdapter(payload.source);
+          await this.deactivateAdapterInternal(payload.source);
         }
       }
     });
@@ -155,7 +162,7 @@ export class IntegrationBridge {
         const adapter = await this.loadAdapter(pluginInfo.id);
         if (adapter) {
           // Check version compatibility
-          if (!this.checkVersionCompatibility(adapter.metadata, plugin.manifest?.version)) {
+          if (!this.checkVersionCompatibility(adapter.metadata, this.plugin.manifest?.version)) {
             console.warn(`Adapter ${pluginInfo.id} version incompatible, skipping`);
             continue;
           }
@@ -189,29 +196,24 @@ export class IntegrationBridge {
   }
 
   /**
-   * Dynamically load adapter for a specific plugin
+   * Load adapter for a specific plugin (using static imports)
    */
-  private async loadAdapter(pluginId: string): Promise<any> {
+  private async loadAdapter(pluginId: string): Promise<IPluginAdapter | null> {
     try {
       switch (pluginId) {
         case 'obsidian-tasks-plugin':
-          const { TasksPluginAdapter } = await import('./adapters/TasksPluginAdapter');
           return new TasksPluginAdapter();
         
         case 'calendar':
-          const { CalendarPluginAdapter } = await import('./adapters/CalendarPluginAdapter');
           return new CalendarPluginAdapter();
         
         case 'obsidian-day-planner':
-          const { DayPlannerAdapter } = await import('./adapters/DayPlannerAdapter');
           return new DayPlannerAdapter();
         
         case 'dataview':
-          const { DataviewAdapter } = await import('./adapters/DataviewAdapter');
           return new DataviewAdapter();
         
         case 'templater-obsidian':
-          const { TemplaterAdapter } = await import('./adapters/TemplaterAdapter');
           return new TemplaterAdapter();
         
         default:
@@ -328,7 +330,7 @@ export class IntegrationBridge {
     } else if (!enabled && this.adapters.has(pluginId)) {
       // Clean up and remove the adapter
       const adapter = this.adapters.get(pluginId);
-      if (adapter && adapter.cleanup) {
+      if (adapter?.cleanup) {
         await adapter.cleanup();
       }
       this.adapters.delete(pluginId);
@@ -411,9 +413,9 @@ export class IntegrationBridge {
   }
 
   /**
-   * Deactivate an adapter
+   * Deactivate an adapter internally
    */
-  private async deactivateAdapter(pluginId: string): Promise<void> {
+  private async deactivateAdapterInternal(pluginId: string): Promise<void> {
     const adapter = this.adapters.get(pluginId);
     if (adapter) {
       try {
@@ -445,7 +447,7 @@ export class IntegrationBridge {
       
       // Visit dependencies first
       const config = this.adapterConfigs.get(plugin.id);
-      if (config && config.dependencies) {
+      if (config?.dependencies) {
         for (const dep of config.dependencies) {
           const depPlugin = plugins.find(p => p.id === dep);
           if (depPlugin) {
@@ -710,7 +712,7 @@ export class IntegrationBridge {
 
       // Visit dependencies first
       const config = this.adapterConfigs.get(adapter.metadata.id);
-      if (config && config.dependencies) {
+      if (config?.dependencies) {
         for (const depId of config.dependencies) {
           const depAdapter = this.adapters.get(depId);
           if (depAdapter) {

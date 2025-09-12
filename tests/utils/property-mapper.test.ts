@@ -299,21 +299,34 @@ describe('PropertyMapper', () => {
       expect(result.value.labels).toHaveLength(1000);
       expect(result.value.labels[0]).toBe('label-0');
       expect(result.value.labels[999]).toBe('label-999');
+    });
+
     it('should handle special characters in field values', async () => {
+      const jiraFields = {
         summary: 'Issue with special chars: àáâãäåæçèéêëìíîïñòóôõöøùúûüý 中文 🚀'
+      };
+      const result = await mapper.mapJiraToBase(jiraFields);
       expect(result.value.title).toBe('Issue with special chars: àáâãäåæçèéêëìíîïñòóôõöøùúûüý 中文 🚀');
+    });
+
     it('should handle transformation function errors gracefully', async () => {
       // Create mapper with a transformer that will throw
       const errorTransformers = {
         'error_transformer': 'function(ctx) { throw new Error("Test error"); }'
+      };
       const errorMapping: FieldMapping = {
         jiraFieldId: 'errorField',
         jiraFieldName: 'Error Field',
         basePropertyId: 'error_prop',
         basePropertyName: 'Error Property',
         transformFunction: 'error_transformer'
+      };
       const errorMapper = new PropertyMapper([errorMapping], errorTransformers);
+      const jiraFields = {
         errorField: 'test value'
+      };
       const result = await errorMapper.mapJiraToBase(jiraFields);
       expect(result.errors![0].code).toBe('TRANSFORMER_ERROR');
+    });
+  });
 });

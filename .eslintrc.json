@@ -69,7 +69,8 @@
   },
   "globals": {
     "NodeJS": "readonly",
-    "navigator": "readonly"
+    "navigator": "readonly",
+    "document": "readonly"
   },
   "ignorePatterns": [
     "dist/",

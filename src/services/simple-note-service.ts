@@ -26,8 +26,8 @@ export interface NoteCreationOptions {
 
 export class SimpleNoteService {
   constructor(
-    private vault: Vault,
-    private baseFolder: string
+    private readonly vault: Vault,
+    private readonly baseFolder: string
   ) {}
 
   /**
@@ -214,7 +214,7 @@ ${commentBody}
         // Replace the marker section in new content with marker + preserved notes
         const newMarkerIndex = newContent.indexOf(marker);
         if (newMarkerIndex !== -1) {
-          return newContent.substring(0, newMarkerIndex + marker.length) + '\n\n' + localNotes;
+          return `${newContent.substring(0, newMarkerIndex + marker.length)  }\n\n${  localNotes}`;
         }
       }
     }
@@ -286,7 +286,7 @@ ${commentBody}
     // Handle content array
     if (Array.isArray(adf.content)) {
       for (const node of adf.content) {
-        text += this.extractTextFromADFNode(node) + '\n';
+        text += `${this.extractTextFromADFNode(node)  }\n`;
       }
     }
     
@@ -347,7 +347,7 @@ ${commentBody}
       
       case 'listItem':
         if (Array.isArray(node.content)) {
-          text = '- ' + node.content.map((n: any) => this.extractTextFromADFNode(n)).join('');
+          text = `- ${  node.content.map((n: any) => this.extractTextFromADFNode(n)).join('')}`;
         }
         break;
       

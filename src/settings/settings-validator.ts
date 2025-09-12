@@ -20,7 +20,7 @@ import { JQLQueryEngine } from '../enhanced-sync/jql-query-engine';
  */
 export class SettingsValidator {
   private queryEngine?: JQLQueryEngine;
-  private customRules: ValidationRule[] = [];
+  private readonly customRules: ValidationRule[] = [];
 
   constructor(queryEngine?: JQLQueryEngine) {
     this.queryEngine = queryEngine;

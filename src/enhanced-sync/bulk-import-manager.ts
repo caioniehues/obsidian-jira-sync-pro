@@ -59,13 +59,13 @@ export type ImportPhase = 'fetching' | 'importing' | 'complete' | 'cancelled' | 
  * Manages bulk import of Jira tickets with progress tracking and resume capability
  */
 export class BulkImportManager {
-  private plugin: Plugin;
-  private queryEngine: JQLQueryEngine;
-  private syncFolder: string;
+  private readonly plugin: Plugin;
+  private readonly queryEngine: JQLQueryEngine;
+  private readonly syncFolder: string;
   private isImporting: boolean = false;
   private shouldCancel: boolean = false;
   private errors: ImportError[] = [];
-  private importState: BulkImportState | null = null;
+  private readonly importState: BulkImportState | null = null;
   private startTime: number = 0;
   private processedCount: number = 0;
 
@@ -248,7 +248,7 @@ export class BulkImportManager {
     options: BulkImportOptions
   ): Promise<'created' | 'updated' | 'skipped'> {
     // Validate ticket data
-    if (!ticket.fields || !ticket.fields.summary) {
+    if (!ticket.fields?.summary) {
       throw new Error('Invalid ticket data: missing fields or summary');
     }
 

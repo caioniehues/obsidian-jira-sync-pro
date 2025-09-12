@@ -20,7 +20,7 @@ export interface ConflictInfo {
 
 export class ConflictDetector {
   private readonly TIMESTAMP_TOLERANCE = 5000; // 5 seconds tolerance for timestamp comparison
-  private eventManager?: EventManager;
+  private readonly eventManager?: EventManager;
 
   constructor(eventManager?: EventManager) {
     this.eventManager = eventManager;

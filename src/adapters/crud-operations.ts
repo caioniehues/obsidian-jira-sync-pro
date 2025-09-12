@@ -49,9 +49,9 @@ export interface ConflictDetectionResult {
 }
 
 export class CrudOperationsManager {
-  private baseSchema: BaseSchema;
-  private activeTransactions = new Map<string, TransactionContext>();
-  private logger: Console;
+  private readonly baseSchema: BaseSchema;
+  private readonly activeTransactions = new Map<string, TransactionContext>();
+  private readonly logger: Console;
 
   constructor(baseSchema: BaseSchema) {
     this.baseSchema = baseSchema;
@@ -69,27 +69,27 @@ export class CrudOperationsManager {
       this.logger.log(`Creating record in base: ${this.baseSchema.id}`);
 
       // Validate record structure
-      const validationResult = await this.validateRecord(record);
-      if (!validationResult.success) {
+      const validationResult = this.validateRecord(record);
+      if (validationResult.success !== true) {
         return validationResult;
       }
 
       // Generate record ID if not provided
       const fullRecord: BaseRecord = {
-        id: record.id || this.generateRecordId(),
+        id: record.id ?? this.generateRecordId(),
         baseId: this.baseSchema.id,
-        properties: record.properties || {},
+        properties: record.properties ?? {},
         createdAt: new Date(),
         updatedAt: new Date(),
         createdBy: record.createdBy,
-        lastModifiedBy: record.lastModifiedBy || record.createdBy,
+        lastModifiedBy: record.lastModifiedBy ?? record.createdBy,
       };
 
       // Apply default values
       this.applyDefaultValues(fullRecord);
 
       // Perform the create operation
-      const createdRecord = await this.executeCreate(fullRecord, options);
+      const createdRecord = this.executeCreate(fullRecord, options);
 
       this.logger.log(`Record created successfully: ${createdRecord.id}`);
 
@@ -104,7 +104,7 @@ export class CrudOperationsManager {
         errors: [
           {
             property: 'operation',
-            message: (error as Error)?.message || 'Create operation failed',
+            message: (error as Error)?.message ?? 'Create operation failed',
             code: 'CREATE_ERROR',
           },
         ],
@@ -136,7 +136,7 @@ export class CrudOperationsManager {
       }
 
       // Execute the query
-      const result = await this.executeQuery(query, options);
+      const result = this.executeQuery(query, options);
 
       this.logger.log(`Retrieved ${result.records.length} records`);
 
@@ -151,7 +151,7 @@ export class CrudOperationsManager {
         errors: [
           {
             property: 'operation',
-            message: (error as Error)?.message || 'Read operation failed',
+            message: (error as Error)?.message ?? 'Read operation failed',
             code: 'READ_ERROR',
           },
         ],
@@ -171,8 +171,8 @@ export class CrudOperationsManager {
       this.logger.log(`Updating record: ${recordId}`);
 
       // Get existing record
-      const existingRecord = await this.getRecordById(recordId);
-      if (!existingRecord) {
+      const existingRecord = this.getRecordById(recordId);
+      if (existingRecord === null || existingRecord === undefined) {
         return {
           success: false,
           errors: [
@@ -186,7 +186,7 @@ export class CrudOperationsManager {
       }
 
       // Detect conflicts
-      const conflictResult = await this.detectConflicts(
+      const conflictResult = this.detectConflicts(
         existingRecord,
         updates
       );
@@ -197,13 +197,13 @@ export class CrudOperationsManager {
         );
 
         // Handle conflict based on resolution strategy
-        const resolvedUpdates = await this.resolveConflicts(
+        const resolvedUpdates = this.resolveConflicts(
           existingRecord,
           updates,
           conflictResult
         );
 
-        if (!resolvedUpdates.success) {
+        if (resolvedUpdates.success !== true) {
           return resolvedUpdates as BaseOperationResult<BaseRecord>;
         }
 
@@ -216,20 +216,20 @@ export class CrudOperationsManager {
         ...updates,
         properties: {
           ...existingRecord.properties,
-          ...(updates.properties || {}),
+          ...(updates.properties ?? {}),
         },
         updatedAt: new Date(),
         lastModifiedBy: updates.lastModifiedBy,
       };
 
       // Validate updated record
-      const validationResult = await this.validateRecord(updatedRecord);
-      if (!validationResult.success) {
+      const validationResult = this.validateRecord(updatedRecord);
+      if (validationResult.success !== true) {
         return validationResult;
       }
 
       // Perform the update operation
-      const savedRecord = await this.executeUpdate(updatedRecord, options);
+      const savedRecord = this.executeUpdate(updatedRecord, options);
 
       this.logger.log(`Record updated successfully: ${recordId}`);
 
@@ -263,8 +263,8 @@ export class CrudOperationsManager {
       this.logger.log(`Deleting record: ${recordId}`);
 
       // Check if record exists
-      const existingRecord = await this.getRecordById(recordId);
-      if (!existingRecord) {
+      const existingRecord = this.getRecordById(recordId);
+      if (existingRecord === null || existingRecord === undefined) {
         return {
           success: false,
           errors: [
@@ -278,13 +278,13 @@ export class CrudOperationsManager {
       }
 
       // Check for cascade relationships
-      const cascadeResult = await this.handleCascadeDelete(existingRecord);
-      if (!cascadeResult.success) {
+      const cascadeResult = this.handleCascadeDelete(existingRecord);
+      if (cascadeResult.success !== true) {
         return cascadeResult;
       }
 
       // Perform the delete operation
-      const deleteResult = await this.executeDelete(recordId, options);
+      const deleteResult = this.executeDelete(recordId, options);
 
       this.logger.log(`Record deleted successfully: ${recordId}`);
 
@@ -324,8 +324,8 @@ export class CrudOperationsManager {
 
       let transaction: TransactionContext | undefined;
 
-      if (options.transactionMode) {
-        transaction = await this.beginTransaction();
+      if (options.transactionMode === true) {
+        transaction = this.beginTransaction();
       }
 
       try {
@@ -333,7 +333,7 @@ export class CrudOperationsManager {
           await this.processBulkOperation(operation, result, options);
         }
 
-        if (transaction) {
+        if (transaction !== undefined && transaction !== null) {
           await this.commitTransaction(transaction.id);
         }
 
@@ -341,7 +341,7 @@ export class CrudOperationsManager {
           `Bulk operations completed. Success: ${result.successful.length}, Failed: ${result.failed.length}`
         );
       } catch (error) {
-        if (transaction) {
+        if (transaction !== undefined && transaction !== null) {
           await this.rollbackTransaction(transaction.id);
         }
         throw error;
@@ -370,7 +370,7 @@ export class CrudOperationsManager {
   /**
    * Begin a transaction
    */
-  async beginTransaction(): Promise<TransactionContext> {
+  beginTransaction(): TransactionContext {
     const transactionId = this.generateTransactionId();
     const transaction: TransactionContext = {
       id: transactionId,
@@ -391,13 +391,14 @@ export class CrudOperationsManager {
    */
   async commitTransaction(transactionId: string): Promise<void> {
     const transaction = this.activeTransactions.get(transactionId);
-    if (!transaction) {
+    if (transaction === undefined || transaction === null) {
       throw new Error(`Transaction not found: ${transactionId}`);
     }
 
     try {
-      // Execute all operations in the transaction
-      await this.executeTransactionOperations(transaction);
+      // Execute all operations in the transaction  
+      // Note: This is a placeholder implementation - actual DB operations would be async
+      this.executeTransactionOperations(transaction);
 
       transaction.committed = true;
       this.activeTransactions.delete(transactionId);
@@ -415,7 +416,7 @@ export class CrudOperationsManager {
    */
   async rollbackTransaction(transactionId: string): Promise<void> {
     const transaction = this.activeTransactions.get(transactionId);
-    if (!transaction) {
+    if (transaction === undefined || transaction === null) {
       throw new Error(`Transaction not found: ${transactionId}`);
     }
 
@@ -423,7 +424,8 @@ export class CrudOperationsManager {
       // Execute rollback operations in reverse order
       for (let i = transaction.rollbackData.length - 1; i >= 0; i--) {
         const rollbackOp = transaction.rollbackData[i];
-        await this.executeRollbackOperation(rollbackOp);
+        // Note: This is a placeholder implementation - actual rollback would be async
+        this.executeRollbackOperation(rollbackOp);
       }
 
       this.activeTransactions.delete(transactionId);
@@ -436,14 +438,14 @@ export class CrudOperationsManager {
 
   // Private implementation methods
 
-  private async validateRecord(
+  private validateRecord(
     record: Partial<BaseRecord>
-  ): Promise<BaseOperationResult> {
+  ): BaseOperationResult {
     const errors: BaseValidationError[] = [];
 
     // Check required properties
     for (const property of this.baseSchema.properties) {
-      if (property.required && !record.properties?.[property.id]) {
+      if (property.required === true && (record.properties?.[property.id] === undefined || record.properties?.[property.id] === null || record.properties?.[property.id] === '')) {
         errors.push({
           property: property.id,
           message: `Required property ${property.name} is missing`,
@@ -453,10 +455,10 @@ export class CrudOperationsManager {
     }
 
     // Validate property types and constraints
-    if (record.properties) {
+    if (record.properties !== undefined && record.properties !== null) {
       for (const [propId, value] of Object.entries(record.properties)) {
         const property = this.baseSchema.properties.find(p => p.id === propId);
-        if (property) {
+        if (property !== undefined && property !== null) {
           const propValidation = this.validateProperty(property, value);
           errors.push(...propValidation);
         }
@@ -488,13 +490,13 @@ export class CrudOperationsManager {
   } {
     const errors: string[] = [];
 
-    if (!query.baseId) {
+    if (query.baseId === undefined || query.baseId === '') {
       errors.push('Base ID is required');
     }
 
-    if (query.filters) {
+    if (query.filters !== undefined && query.filters !== null) {
       for (const filter of query.filters) {
-        if (!filter.property || !filter.operator) {
+        if ((filter.property === undefined || filter.property === '') || (filter.operator === undefined)) {
           errors.push('Filter must have property and operator');
         }
       }
@@ -510,17 +512,17 @@ export class CrudOperationsManager {
     for (const property of this.baseSchema.properties) {
       if (
         property.defaultValue !== undefined &&
-        !record.properties[property.id]
+        (record.properties[property.id] === undefined || record.properties[property.id] === null)
       ) {
         record.properties[property.id] = property.defaultValue;
       }
     }
   }
 
-  private async detectConflicts(
+  private detectConflicts(
     existingRecord: BaseRecord,
     updates: Partial<BaseRecord>
-  ): Promise<ConflictDetectionResult> {
+  ): ConflictDetectionResult {
     // TODO: Implement actual conflict detection by comparing updates with existingRecord
     console.log('Detecting conflicts between existing record and updates:', {
       recordId: existingRecord.id,
@@ -535,11 +537,11 @@ export class CrudOperationsManager {
     };
   }
 
-  private async resolveConflicts(
+  private resolveConflicts(
     existingRecord: BaseRecord,
     updates: Partial<BaseRecord>,
     conflictResult: ConflictDetectionResult
-  ): Promise<BaseOperationResult<Partial<BaseRecord>>> {
+  ): BaseOperationResult<Partial<BaseRecord>> {
     // TODO: Implement different conflict resolution strategies based on conflictResult.conflictResolution
     console.log(
       'Resolving conflicts for record:',
@@ -554,9 +556,9 @@ export class CrudOperationsManager {
     };
   }
 
-  private async handleCascadeDelete(
+  private handleCascadeDelete(
     record: BaseRecord
-  ): Promise<BaseOperationResult<boolean>> {
+  ): BaseOperationResult<boolean> {
     // TODO: Implement cascade delete logic - find and handle related records
     console.log('Checking cascade delete requirements for record:', record.id);
 
@@ -571,7 +573,7 @@ export class CrudOperationsManager {
     result: BaseBulkResult,
     options: CrudOperationOptions
   ): Promise<void> {
-    const batchSize = options.batchSize || 50;
+    const batchSize = options.batchSize ?? 50;
 
     for (let i = 0; i < operation.records.length; i += batchSize) {
       const batch = operation.records.slice(i, i + batchSize);
@@ -585,19 +587,25 @@ export class CrudOperationsManager {
               operationResult = await this.create(record, options);
               break;
             case 'update':
-              operationResult = await this.update(record.id!, record, options);
+              if (record.id === undefined) {
+                throw new Error('Record ID is required for update operation');
+              }
+              operationResult = await this.update(record.id, record, options);
               break;
             case 'delete':
-              operationResult = await this.delete(record.id!, options);
+              if (record.id === undefined) {
+                throw new Error('Record ID is required for delete operation');
+              }
+              operationResult = await this.delete(record.id, options);
               break;
           }
 
-          if (operationResult.success && operationResult.data) {
+          if (operationResult.success === true && (operationResult.data !== undefined && operationResult.data !== null)) {
             result.successful.push(operationResult.data);
           } else {
             result.failed.push({
               record,
-              errors: operationResult.errors || [],
+              errors: operationResult.errors ?? [],
             });
           }
         } catch (error) {
@@ -627,19 +635,19 @@ export class CrudOperationsManager {
     return `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  private async executeCreate(
+  private executeCreate(
     record: BaseRecord,
     options: CrudOperationOptions
-  ): Promise<BaseRecord> {
+  ): BaseRecord {
     // TODO: Implement actual Base API create call with timeout and retry logic from options
     console.log('Creating record with options:', options);
     return record;
   }
 
-  private async executeQuery(
+  private executeQuery(
     query: BaseQuery,
     options: CrudOperationOptions
-  ): Promise<BaseQueryResult> {
+  ): BaseQueryResult {
     // TODO: Implement actual Base API query call using query filters and options
     console.log(
       'Executing query for base:',
@@ -654,33 +662,33 @@ export class CrudOperationsManager {
     };
   }
 
-  private async executeUpdate(
+  private executeUpdate(
     record: BaseRecord,
     options: CrudOperationOptions
-  ): Promise<BaseRecord> {
+  ): BaseRecord {
     // TODO: Implement actual Base API update call with validation and options
     console.log('Updating record with options:', options);
     return record;
   }
 
-  private async executeDelete(
+  private executeDelete(
     recordId: string,
     options: CrudOperationOptions
-  ): Promise<boolean> {
+  ): boolean {
     // TODO: Implement actual Base API delete call with cascade handling from options
     console.log('Deleting record:', recordId, 'with options:', options);
     return true;
   }
 
-  private async getRecordById(recordId: string): Promise<BaseRecord | null> {
+  private getRecordById(recordId: string): BaseRecord | null {
     // TODO: Implement actual Base API get call
     console.log('Fetching record by ID:', recordId);
     return null;
   }
 
-  private async executeTransactionOperations(
+  private executeTransactionOperations(
     transaction: TransactionContext
-  ): Promise<void> {
+  ): void {
     // TODO: Implement transaction execution - process all operations in sequence
     console.log(
       'Executing transaction:',
@@ -691,10 +699,10 @@ export class CrudOperationsManager {
     );
   }
 
-  private async executeRollbackOperation(rollbackOp: {
+  private executeRollbackOperation(rollbackOp: {
     operation: string;
     data: unknown;
-  }): Promise<void> {
+  }): void {
     // TODO: Implement rollback operation based on operation type
     console.log('Executing rollback operation:', rollbackOp.operation);
   }
@@ -703,7 +711,7 @@ export class CrudOperationsManager {
 // Query builder helper class
 
 export class QueryBuilder {
-  private query: BaseQuery;
+  private readonly query: BaseQuery;
 
   constructor(baseId: string) {
     this.query = {
@@ -720,7 +728,10 @@ export class QueryBuilder {
     operator: FilterOperator,
     value: unknown
   ): QueryBuilder {
-    this.query.filters!.push({
+    if (this.query.filters === undefined) {
+      this.query.filters = [];
+    }
+    this.query.filters.push({
       property,
       operator,
       value,
@@ -729,7 +740,10 @@ export class QueryBuilder {
   }
 
   orderBy(property: string, direction: 'asc' | 'desc' = 'asc'): QueryBuilder {
-    this.query.sorts!.push({
+    if (this.query.sorts === undefined) {
+      this.query.sorts = [];
+    }
+    this.query.sorts.push({
       property,
       direction,
     });
@@ -763,15 +777,15 @@ export function validateRecordStructure(
 ): string[] {
   const errors: string[] = [];
 
-  if (!record.id) {
+  if (record.id === undefined || record.id === null || record.id === '') {
     errors.push('Record ID is required');
   }
 
-  if (!record.baseId || record.baseId !== schema.id) {
+  if ((record.baseId === undefined || record.baseId === null || record.baseId === '') || record.baseId !== schema.id) {
     errors.push('Base ID mismatch');
   }
 
-  if (!record.properties) {
+  if (record.properties === undefined || record.properties === null) {
     errors.push('Record properties are required');
   }
 

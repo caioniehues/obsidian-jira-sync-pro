@@ -7,6 +7,7 @@ import { EnhancedSyncDashboard } from './ui/enhanced-dashboard';
 import { SimpleNoteService } from './services/simple-note-service';
 import { EventBus } from './events/event-bus';
 import { PluginRegistry } from './integrations/PluginRegistry';
+import { IntegrationBridge } from './integrations/IntegrationBridge';
 import { StatusMapping, DEFAULT_STATUS_MAPPING } from './settings/settings-types';
 
 interface JiraSyncProSettings {
@@ -66,6 +67,7 @@ export default class JiraSyncProPlugin extends Plugin {
   bulkImportManager: BulkImportManager | null = null;
   private eventBus: EventBus | null = null;
   private pluginRegistry: PluginRegistry | null = null;
+  private integrationBridge: IntegrationBridge | null = null;
   private initializationPromise: Promise<void> | null = null;
   private isInitialized: boolean = false;
 
@@ -80,7 +82,12 @@ export default class JiraSyncProPlugin extends Plugin {
       // Initialize core components
       this.eventBus = new EventBus();
       this.pluginRegistry = new PluginRegistry(this.app);
-      console.log('Jira Sync Pro: Event bus and plugin registry initialized');
+      
+      // Initialize the Integration Bridge to coordinate plugin communications
+      this.integrationBridge = new IntegrationBridge(this);
+      await this.integrationBridge.initialize();
+      
+      console.log('Jira Sync Pro: Event bus, plugin registry, and integration bridge initialized');
 
       // Add settings tab
       this.addSettingTab(new JiraSyncProSettingTab(this.app, this));
@@ -128,6 +135,12 @@ export default class JiraSyncProPlugin extends Plugin {
       } catch (error) {
         console.error('Error stopping scheduler:', error);
       }
+    }
+
+    // Clean up integration bridge first (it manages event bus)
+    if (this.integrationBridge) {
+      await this.integrationBridge.cleanup();
+      this.integrationBridge = null;
     }
 
     // Clean up event bus
@@ -402,6 +415,11 @@ export default class JiraSyncProPlugin extends Plugin {
       }
       
       new Notice(`Jira Sync Pro: Processing ${stats.total} tickets...`);
+      
+      // Notify integration bridge of sync start
+      if (this.integrationBridge) {
+        this.integrationBridge.onTicketsSynced(result.issues);
+      }
       
       for (const ticket of result.issues) {
         try {

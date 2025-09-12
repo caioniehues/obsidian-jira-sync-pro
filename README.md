@@ -10,6 +10,9 @@ Enhanced Obsidian plugin for automatic Jira ticket synchronization with JQL-base
 - 🔄 **Bidirectional Sync**: Keep Obsidian and Jira in sync (coming soon)
 - 📊 **Status Dashboard**: Monitor sync health and statistics
 - ⚡ **Performance Optimized**: Pagination, field selection, and rate limit handling
+- 🔌 **Plugin Integration Bridge**: Seamlessly integrates with Tasks, Dataview, Calendar, and more
+- 🏢 **Status-Based Organization**: Auto-organize tickets by status (Active/Archived)
+- 🔐 **Permission Handling**: Automatic filtering of inaccessible tickets
 
 ## Installation
 
@@ -47,6 +50,25 @@ npm run dev
    - **Sync Interval**: Set frequency (1-60 minutes)
    - **Sync Folder**: Where to store ticket notes
 
+## Plugin Integrations
+
+The Integration Bridge enables seamless communication between Jira Sync Pro and other Obsidian plugins:
+
+### Supported Plugins
+- **Tasks Plugin**: Converts Jira tickets to task format with priority emojis
+- **Dataview**: Query Jira data directly in Dataview queries
+- **Calendar**: Sync due dates to calendar views
+- **Day Planner**: Create time blocks from Jira tickets
+- **Templater**: Use Jira data in templates
+- **Kanban**: Sync ticket status with Kanban boards (coming soon)
+
+### Enabling Integrations
+1. Install the desired plugin from Community Plugins
+2. Open Jira Sync Pro settings
+3. Navigate to "Plugin Integrations" section
+4. Toggle on the plugins you want to integrate
+5. Run a sync to activate the integration
+
 ## Usage
 
 ### Commands
@@ -55,6 +77,10 @@ Access via Command Palette (Ctrl/Cmd + P):
 - `Jira Sync: Manual sync now` - Trigger immediate synchronization
 - `Jira Sync: Bulk import tickets` - Import all matching tickets
 - `Jira Sync: Show sync status` - View sync statistics
+- `Jira Sync: Open sync dashboard` - Enhanced dashboard with real-time monitoring
+- `Jira Sync: Test connection` - Verify Jira credentials and connectivity
+- `Jira Sync: Show plugin integration status` - View compatible plugin integrations
+- `Jira Sync: Test all integrations` - Verify plugin bridge connections
 
 ### JQL Query Examples
 
@@ -82,9 +108,19 @@ obsidian-jira-sync-pro/
 │   ├── enhanced-sync/           # Core sync components
 │   │   ├── jql-query-engine.ts # JQL query execution
 │   │   ├── auto-sync-scheduler.ts # Scheduling system
-│   │   └── bulk-import-manager.ts # Bulk import (WIP)
-│   └── jira-bases-adapter/     # Jira API integration
-│       └── jira-client.ts      # API client
+│   │   └── bulk-import-manager.ts # Bulk import manager
+│   ├── jira-bases-adapter/     # Jira API integration
+│   │   └── jira-client.ts      # API client
+│   ├── integrations/           # Plugin integration system
+│   │   ├── IntegrationBridge.ts # Central coordinator
+│   │   ├── EventBus.ts         # Event-driven communication
+│   │   ├── PluginRegistry.ts   # Plugin discovery
+│   │   └── adapters/           # Plugin-specific adapters
+│   │       ├── TasksPluginAdapter.ts
+│   │       ├── DataviewAdapter.ts
+│   │       └── ...             # Other plugin adapters
+│   └── services/               # Core services
+│       └── simple-note-service.ts # Note creation/management
 ├── tests/                       # Test suites
 ├── manifest.json               # Plugin metadata
 └── package.json               # Dependencies
@@ -112,11 +148,17 @@ npm run lint     # Check code quality
 - Jira API client with authentication
 - Settings UI with configuration options
 - Manual sync command
+- Bulk Import Manager with progress tracking
+- Enhanced Configuration UI with validation
+- Status Dashboard with real-time monitoring
+- Plugin Integration Bridge for seamless plugin communication
+- Status-based ticket organization (Active/Archived)
+- Permission-aware sync with automatic filtering
 
 🚧 **In Progress**:
-- Bulk Import Manager (Task 3)
-- Configuration UI enhancements (Task 4)
-- Status Dashboard (Task 5)
+- Full bidirectional sync
+- Advanced conflict resolution
+- Custom field mapping UI
 
 ## Contributing
 

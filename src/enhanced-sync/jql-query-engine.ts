@@ -102,7 +102,7 @@ const DEFAULT_FIELDS = [
  * JQL Query Engine for executing Jira queries with pagination and error handling
  */
 export class JQLQueryEngine {
-  private jiraClient: JiraClient;
+  private readonly jiraClient: JiraClient;
   
   constructor(jiraClient: JiraClient) {
     this.jiraClient = jiraClient;
@@ -346,7 +346,7 @@ export class JQLQueryEngine {
     if (error.status >= 500 && error.status < 600) return true;
     
     // Network errors
-    if (error.message && error.message.includes('Network')) return true;
+    if (error.message?.includes('Network')) return true;
     
     return false;
   }
@@ -391,7 +391,7 @@ export class JQLQueryEngine {
   /**
    * Sleep utility for retry delays
    */
-  private sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  private async sleep(ms: number, signal?: AbortSignal): Promise<void> {
     return new Promise((resolve, reject) => {
       // Check if already aborted
       if (signal?.aborted) {

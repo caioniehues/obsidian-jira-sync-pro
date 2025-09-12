@@ -62,12 +62,12 @@ export interface DashboardOptions {
  * Provides comprehensive view of sync operations and statistics
  */
 export class SyncStatusDashboard extends Modal {
-  private scheduler: AutoSyncScheduler | null;
-  private queryEngine: JQLQueryEngine | null;
+  private readonly scheduler: AutoSyncScheduler | null;
+  private readonly queryEngine: JQLQueryEngine | null;
   private statistics: SyncStatistics;
-  private options: DashboardOptions;
+  private readonly options: DashboardOptions;
   private refreshInterval: NodeJS.Timer | null = null;
-  private containerEl: HTMLElement;
+  private readonly containerEl: HTMLElement;
   
   // UI Elements
   private statsContainer: HTMLElement;

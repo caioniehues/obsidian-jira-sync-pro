@@ -21,7 +21,7 @@ import {
  * Enhanced Sync Status Dashboard with shadcn UI components
  */
 export class EnhancedSyncDashboard extends Modal {
-  private scheduler: AutoSyncScheduler | null;
+  private readonly scheduler: AutoSyncScheduler | null;
   private statistics: SyncStatistics;
   private refreshInterval: NodeJS.Timeout | null = null;
   

@@ -72,18 +72,18 @@ export interface SyncConflict {
 }
 
 export class BidirectionalSyncEngine {
-  private config: SyncEngineConfig;
-  private plugin: Plugin;
-  private vault: Vault;
-  private apiClient: JiraApiClient;
-  private changeQueue: ChangeQueue;
-  private conflictDetector: ConflictDetector;
-  private rateLimiter: RateLimiter;
+  private readonly config: SyncEngineConfig;
+  private readonly plugin: Plugin;
+  private readonly vault: Vault;
+  private readonly apiClient: JiraApiClient;
+  private readonly changeQueue: ChangeQueue;
+  private readonly conflictDetector: ConflictDetector;
+  private readonly rateLimiter: RateLimiter;
   private eventManager: EventManager;
-  private errorHandler: ErrorHandler;
+  private readonly errorHandler: ErrorHandler;
   private isRunning: boolean = false;
   private lastSyncTime: number = 0;
-  private fileWatcher: Map<string, number> = new Map();
+  private readonly fileWatcher: Map<string, number> = new Map();
 
   constructor(
     plugin: Plugin,
@@ -323,7 +323,7 @@ export class BidirectionalSyncEngine {
       await this.rateLimiter.waitIfNeeded();
 
       try {
-        const promises = batch.map(change => this.pushSingleChange(change));
+        const promises = batch.map(async change => this.pushSingleChange(change));
 
         const results = await Promise.allSettled(promises);
 

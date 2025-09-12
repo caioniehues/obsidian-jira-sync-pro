@@ -215,9 +215,9 @@ export class FieldTransformers {
  * Field mapping configuration for Jira to Obsidian transformation
  */
 export class FieldMapper {
-  private jiraUrl: string = '';
-  private customFieldMappings: Map<string, JiraFieldMapping> = new Map();
-  private customFieldRegistry: Map<string, JiraCustomField> = new Map();
+  private readonly jiraUrl: string = '';
+  private readonly customFieldMappings: Map<string, JiraFieldMapping> = new Map();
+  private readonly customFieldRegistry: Map<string, JiraCustomField> = new Map();
   
   constructor(jiraUrl?: string) {
     if (jiraUrl) {

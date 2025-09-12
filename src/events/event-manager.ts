@@ -15,10 +15,10 @@ interface PluginEventSubscription {
 export class EventManager {
   // WeakMap for memory-safe cleanup - when plugin instance is garbage collected,
   // associated event handlers are automatically cleaned up
-  private pluginSubscriptions: WeakMap<object, PluginEventSubscription[]> =
+  private readonly pluginSubscriptions: WeakMap<object, PluginEventSubscription[]> =
     new WeakMap();
-  private eventBusInstance: EventBus;
-  private handlerIdCounter = 0;
+  private readonly eventBusInstance: EventBus;
+  private readonly handlerIdCounter = 0;
 
   constructor(eventBusInstance: EventBus = eventBus) {
     this.eventBusInstance = eventBusInstance;
@@ -40,7 +40,7 @@ export class EventManager {
     let actualHandlerId: string;
 
     const wrappedHandler = isOnce
-      ? ((event => {
+      ? ((async event => {
           const result = handler(event);
           // Clean up the subscription from our tracking immediately after execution
           this.cleanupOnceHandler(pluginInstance, actualHandlerId);

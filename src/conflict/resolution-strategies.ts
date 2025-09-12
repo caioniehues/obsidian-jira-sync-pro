@@ -906,10 +906,10 @@ export class ResolutionStrategies {
 
     if (uniqueSentences2.length > 0) {
       return (
-        text1 +
-        '\n\n--- Additional Content ---\n' +
-        uniqueSentences2.join('. ') +
-        '.'
+        `${text1 
+        }\n\n--- Additional Content ---\n${ 
+        uniqueSentences2.join('. ') 
+        }.`
       );
     }
 

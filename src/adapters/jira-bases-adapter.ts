@@ -87,12 +87,12 @@ export class JiraBasesAdapterError extends Error {
 }
 
 export class JiraBasesAdapter {
-  private config: JiraBasesConfig;
+  private readonly config: JiraBasesConfig;
   private baseSchema?: BaseSchema;
   private jiraFields?: JiraField[];
-  private logger: Console;
-  private propertyMapper: PropertyMapper;
-  private schemaValidator: SchemaValidator;
+  private readonly logger: Console;
+  private readonly propertyMapper: PropertyMapper;
+  private readonly schemaValidator: SchemaValidator;
   private isInitialized: boolean = false;
 
   constructor(config: JiraBasesConfig) {
@@ -128,12 +128,12 @@ export class JiraBasesAdapter {
       await this.loadJiraFields();
 
       // Update mapper and validator with loaded schemas
-      if (this.baseSchema?.properties) {
+      if (this.baseSchema?.properties !== undefined && this.baseSchema?.properties !== null) {
         this.propertyMapper.setBaseProperties(this.baseSchema.properties);
         this.schemaValidator.setBaseProperties(this.baseSchema.properties);
       }
 
-      if (this.jiraFields) {
+      if (this.jiraFields !== undefined && this.jiraFields !== null) {
         this.propertyMapper.setJiraFields(this.jiraFields);
         this.schemaValidator.setJiraFields(this.jiraFields);
 

@@ -91,9 +91,9 @@ interface ImportState {
  * - Resume capability for interrupted imports
  */
 export class BulkImportManager {
-  private plugin: Plugin;
-  private queryEngine: JQLQueryEngine;
-  private syncFolder: string;
+  private readonly plugin: Plugin;
+  private readonly queryEngine: JQLQueryEngine;
+  private readonly syncFolder: string;
   private state: ImportState | null = null;
   private batchResults: BatchResult[] = [];
   private memoryWatcher: NodeJS.Timeout | null = null;
@@ -875,7 +875,7 @@ export class BulkImportManager {
   /**
    * Sleep utility for delays
    */
-  private sleep(ms: number): Promise<void> {
+  private async sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
@@ -887,7 +887,7 @@ export class BulkImportManager {
     options: BulkImportOptions
   ): Promise<'created' | 'updated' | 'skipped'> {
     // Validate ticket data
-    if (!ticket.fields || !ticket.fields.summary) {
+    if (!ticket.fields?.summary) {
       throw new Error('Invalid ticket data: missing fields or summary');
     }
 

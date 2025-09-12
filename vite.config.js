@@ -16,6 +16,8 @@ export default defineConfig({
         ...builtinModules.map(m => `node:${m}`)
       ],
       output: {
+        inlineDynamicImports: true,
+        format: 'cjs',
         assetFileNames: 'styles.css',
         entryFileNames: 'main.js'
       }
