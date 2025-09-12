@@ -16,7 +16,7 @@
  * - Issue ordering and team member metadata preservation
  */
 
-import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, vi, beforeEach, afterEach } from '@vitest/globals';
 import { JQLQueryEngine, JQLQueryOptions, QueryPhase, JiraIssue } from '../../src/enhanced-sync/jql-query-engine';
 import { JiraClient, SearchResponse } from '../../src/jira-bases-adapter/jira-client';
 import { AutoSyncScheduler } from '../../src/enhanced-sync/auto-sync-scheduler';
@@ -32,8 +32,8 @@ import {
 } from '../utils/test-helpers';
 
 // Mock dependencies
-jest.mock('../../src/jira-bases-adapter/jira-client');
-jest.mock('../../src/enhanced-sync/auto-sync-scheduler');
+vi.mock('../../src/jira-bases-adapter/jira-client');
+vi.mock('../../src/enhanced-sync/auto-sync-scheduler');
 
 /**
  * Team configuration for testing
@@ -60,18 +60,18 @@ interface TeamSyncMetrics {
 describe('Team Query Configuration Integration Tests', () => {
   let engine: JQLQueryEngine;
   let scheduler: AutoSyncScheduler;
-  let mockJiraClient: jest.Mocked<JiraClient>;
+  let mockJiraClient: vi.Mocked<JiraClient>;
   let mockTimer: MockTimer;
   let progressCallback: ReturnType<typeof createMockProgressCallback>;
 
   beforeEach(() => {
     // Reset all mocks and test state
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     JiraFactory.resetCounter();
     
     // Create mocked dependencies
-    mockJiraClient = new JiraClient() as jest.Mocked<JiraClient>;
-    scheduler = new AutoSyncScheduler() as jest.Mocked<AutoSyncScheduler>;
+    mockJiraClient = new JiraClient() as vi.Mocked<JiraClient>;
+    scheduler = new AutoSyncScheduler() as vi.Mocked<AutoSyncScheduler>;
     
     // Setup progress tracking
     progressCallback = createMockProgressCallback();
@@ -87,7 +87,7 @@ describe('Team Query Configuration Integration Tests', () => {
   afterEach(() => {
     // Cleanup mocks and timers
     mockTimer.uninstall();
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   describe('Complex Team JQL Query Validation', () => {
@@ -105,7 +105,7 @@ describe('Team Query Configuration Integration Tests', () => {
         const complexTeamJQL = `project = ${teamConfig.projectKey} AND sprint in openSprints() AND assignee in (${teamConfig.members.map(m => `"${m}"`).join(', ')})`;
         
         // CRITICAL TDD: This MUST fail initially since the implementation doesn't exist yet
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(
           JiraFactory.createSearchResponse({ issueCount: 0 })
         );
 
@@ -140,7 +140,7 @@ describe('Team Query Configuration Integration Tests', () => {
           ORDER BY updated DESC, priority DESC
         `.trim().replace(/\s+/g, ' ');
 
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(
           JiraFactory.createSearchResponse({ issueCount: 0 })
         );
 
@@ -162,7 +162,7 @@ describe('Team Query Configuration Integration Tests', () => {
         const invalidTeamJQL = 'project = TEAMPROJ ANDD sprint in openSprints() ANDD assignee inn (user1, user2)';
         const syntaxError = JiraFactory.createErrorResponse(400, 'Invalid JQL syntax: unexpected token ANDD');
         
-        mockJiraClient.searchIssues = jest.fn().mockRejectedValue(syntaxError);
+        mockJiraClient.searchIssues = vi.fn().mockRejectedValue(syntaxError);
 
         // Act
         const isValid = await engine.validateQuery(invalidTeamJQL);
@@ -177,7 +177,7 @@ describe('Team Query Configuration Integration Tests', () => {
         // Arrange
         const sprintJQL = 'project = TEAM AND sprint in openSprints() AND assignee = currentUser()';
         
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(
           JiraFactory.createSearchResponse({ issueCount: 0 })
         );
 
@@ -197,7 +197,7 @@ describe('Team Query Configuration Integration Tests', () => {
         // Arrange
         const retrospectiveJQL = 'project = TEAM AND sprint in closedSprints() AND resolved >= -14d';
         
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(
           JiraFactory.createSearchResponse({ issueCount: 0 })
         );
 
@@ -213,7 +213,7 @@ describe('Team Query Configuration Integration Tests', () => {
         const sprintJQL = 'project = TEAM AND sprint in openSprints()';
         const sprintError = JiraFactory.createErrorResponse(400, 'Function openSprints() not available');
         
-        mockJiraClient.searchIssues = jest.fn().mockRejectedValue(sprintError);
+        mockJiraClient.searchIssues = vi.fn().mockRejectedValue(sprintError);
 
         // Act
         const isValid = await engine.validateQuery(sprintJQL);
@@ -262,7 +262,7 @@ describe('Team Query Configuration Integration Tests', () => {
           isLast: true
         };
 
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(page1);
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(page1);
 
         // Act
         const result = await engine.executeQuery({
@@ -321,7 +321,7 @@ describe('Team Query Configuration Integration Tests', () => {
 
         const orderedJQL = 'project = TEAM AND sprint in openSprints() ORDER BY updated DESC, priority DESC';
         
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue({
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue({
           startAt: 0,
           maxResults: 50,
           total: 3,
@@ -375,7 +375,7 @@ describe('Team Query Configuration Integration Tests', () => {
 
         const sprintJQL = 'project = TEAM AND sprint in openSprints() AND "Sprint" = "Sprint 23"';
         
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue({
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue({
           startAt: 0,
           maxResults: 50,
           total: 2,
@@ -457,7 +457,7 @@ describe('Team Query Configuration Integration Tests', () => {
           isLast: true
         };
 
-        mockJiraClient.searchIssues = jest.fn()
+        mockJiraClient.searchIssues = vi.fn()
           .mockResolvedValueOnce(page1)
           .mockResolvedValueOnce(page2)
           .mockResolvedValueOnce(page3);
@@ -549,7 +549,7 @@ describe('Team Query Configuration Integration Tests', () => {
         ];
 
         // Mock first sync cycle
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue({
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue({
           startAt: 0,
           maxResults: 50,
           total: 2,
@@ -567,7 +567,7 @@ describe('Team Query Configuration Integration Tests', () => {
         });
 
         // Setup second sync cycle
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue({
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue({
           startAt: 0,
           maxResults: 50,
           total: 3,
@@ -622,7 +622,7 @@ describe('Team Query Configuration Integration Tests', () => {
         ];
 
         // First sync: Full team
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue({
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue({
           startAt: 0, maxResults: 50, total: 3, issues: fullTeamIssues,
           nextPageToken: undefined, isLast: true
         });
@@ -632,7 +632,7 @@ describe('Team Query Configuration Integration Tests', () => {
         });
 
         // Second sync: Reduced team (Charlie removed)
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue({
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue({
           startAt: 0, maxResults: 50, total: 2, issues: reducedTeamIssues,
           nextPageToken: undefined, isLast: true
         });
@@ -676,7 +676,7 @@ describe('Team Query Configuration Integration Tests', () => {
         ];
 
         // First sync: Base team
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue({
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue({
           startAt: 0, maxResults: 50, total: 2, issues: baseTeamIssues,
           nextPageToken: undefined, isLast: true
         });
@@ -687,7 +687,7 @@ describe('Team Query Configuration Integration Tests', () => {
         });
 
         // Second sync: Expanded team with new member
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue({
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue({
           startAt: 0, maxResults: 50, total: 4, issues: expandedTeamIssues,
           nextPageToken: undefined, isLast: true
         });
@@ -743,7 +743,7 @@ describe('Team Query Configuration Integration Tests', () => {
           })
         ];
 
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue({
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue({
           startAt: 0,
           maxResults: teamOversightConfig.batchSize,
           total: 3,
@@ -802,7 +802,7 @@ describe('Team Query Configuration Integration Tests', () => {
           })
         );
 
-        mockJiraClient.searchIssues = jest.fn()
+        mockJiraClient.searchIssues = vi.fn()
           .mockResolvedValueOnce({
             startAt: 0,
             maxResults: teamBatchSize,
@@ -857,7 +857,7 @@ describe('Team Query Configuration Integration Tests', () => {
         const restrictedTeamJQL = 'project = RESTRICTED AND assignee in ("public@company.com", "restricted@company.com")';
         const permissionError = JiraFactory.createErrorResponse(403, 'Insufficient permissions to view issues assigned to restricted@company.com');
         
-        mockJiraClient.searchIssues = jest.fn().mockRejectedValue(permissionError);
+        mockJiraClient.searchIssues = vi.fn().mockRejectedValue(permissionError);
 
         // Act & Assert
         await expect(engine.executeQuery({
@@ -880,7 +880,7 @@ describe('Team Query Configuration Integration Tests', () => {
         // Second page fails due to sprint closure
         const sprintClosedError = JiraFactory.createErrorResponse(400, 'Sprint no longer active in openSprints()');
 
-        mockJiraClient.searchIssues = jest.fn()
+        mockJiraClient.searchIssues = vi.fn()
           .mockResolvedValueOnce(page1)
           .mockRejectedValueOnce(sprintClosedError);
 
@@ -900,7 +900,7 @@ describe('Team Query Configuration Integration Tests', () => {
         // Arrange: All team members have been unassigned from sprint
         const emptyTeamJQL = 'project = EMPTY AND sprint in openSprints() AND assignee in ("former1@company.com", "former2@company.com")';
         
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue({
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue({
           startAt: 0,
           maxResults: 50,
           total: 0,
@@ -939,7 +939,7 @@ describe('Team Query Configuration Integration Tests', () => {
       const futureFunctionalityJQL = 'project = FUTURE AND sprint in openSprints() AND assignee in ("future@company.com")';
       
       // This will fail because the advanced team functionality is not implemented yet
-      mockJiraClient.searchIssues = jest.fn().mockImplementation(() => {
+      mockJiraClient.searchIssues = vi.fn().mockImplementation(() => {
         throw new Error('Advanced team query functionality not yet implemented');
       });
 
@@ -973,7 +973,7 @@ describe('Team Query Configuration Integration Tests', () => {
         })
       );
 
-      mockJiraClient.searchIssues = jest.fn().mockResolvedValue({
+      mockJiraClient.searchIssues = vi.fn().mockResolvedValue({
         startAt: 0,
         maxResults: 50,
         total: performanceIssueCount,

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import { describe, it, expect, beforeEach, vi } from '@vitest/globals';
 
 // Import the SyncError interface and related types
 // NOTE: These imports will fail initially - this is expected for TDD
@@ -158,11 +158,11 @@ describe('SyncError Data Model', () => {
   describe('Backoff Calculation', () => {
     beforeEach(() => {
       // Mock Date.now() for consistent testing
-      jest.spyOn(Date, 'now').mockReturnValue(1000000000);
+      vi.spyOn(Date, 'now').mockReturnValue(1000000000);
     });
 
     afterEach(() => {
-      jest.restoreAllMocks();
+      vi.restoreAllMocks();
     });
 
     it('should calculate exponential backoff for API rate limits', () => {

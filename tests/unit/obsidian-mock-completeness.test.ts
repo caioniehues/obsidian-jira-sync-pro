@@ -99,7 +99,7 @@ describe('Obsidian Mock Completeness', () => {
 
   describe('Dashboard-specific Methods', () => {
     it('should support createDiv with attributes and callback', () => {
-      const callback = jest.fn();
+      const callback = vi.fn();
       const div = mockElement.createDiv({ cls: 'stat-card' }, callback);
       
       expect(div.hasClass('stat-card')).toBe(true);
@@ -133,14 +133,14 @@ describe('Obsidian Mock Completeness', () => {
   describe('Event Handling', () => {
     it('should have addEventListener method', () => {
       expect(typeof mockElement.addEventListener).toBe('function');
-      const callback = jest.fn();
+      const callback = vi.fn();
       mockElement.addEventListener('click', callback);
       // Mock implementation doesn't track listeners, but method should exist
     });
 
     it('should have removeEventListener method', () => {
       expect(typeof mockElement.removeEventListener).toBe('function');
-      const callback = jest.fn();
+      const callback = vi.fn();
       mockElement.removeEventListener('click', callback);
     });
 

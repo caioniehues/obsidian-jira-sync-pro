@@ -1,4 +1,4 @@
-import { jest } from '@jest/globals';
+import { jest } from '@vitest/globals';
 import { App, Plugin, WorkspaceLeaf, ItemView, Setting, Notice } from 'obsidian';
 import { SyncStatusView, SYNC_STATUS_VIEW_TYPE, DashboardSyncStatistics, ActiveOperation } from '../../src/sync/sync-status-view';
 import { AutoSyncScheduler } from '../../src/enhanced-sync/auto-sync-scheduler';
@@ -7,31 +7,31 @@ import { JQLQueryEngine } from '../../src/enhanced-sync/jql-query-engine';
 import { SyncPhase, ErrorCategory } from '../../src/types/sync-types';
 
 describe('SyncStatusView', () => {
-  let mockApp: jest.Mocked<App>;
-  let mockPlugin: jest.Mocked<Plugin>;
-  let mockLeaf: jest.Mocked<WorkspaceLeaf>;
-  let mockScheduler: jest.Mocked<AutoSyncScheduler>;
-  let mockBulkImportManager: jest.Mocked<BulkImportManager>;
-  let mockQueryEngine: jest.Mocked<JQLQueryEngine>;
+  let mockApp: vi.Mocked<App>;
+  let mockPlugin: vi.Mocked<Plugin>;
+  let mockLeaf: vi.Mocked<WorkspaceLeaf>;
+  let mockScheduler: vi.Mocked<AutoSyncScheduler>;
+  let mockBulkImportManager: vi.Mocked<BulkImportManager>;
+  let mockQueryEngine: vi.Mocked<JQLQueryEngine>;
 
   beforeEach(() => {
     // Clear all mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Setup mock objects
-    mockApp = {} as jest.Mocked<App>;
-    mockPlugin = { app: mockApp } as jest.Mocked<Plugin>;
-    mockLeaf = {} as jest.Mocked<WorkspaceLeaf>;
+    mockApp = {} as vi.Mocked<App>;
+    mockPlugin = { app: mockApp } as vi.Mocked<Plugin>;
+    mockLeaf = {} as vi.Mocked<WorkspaceLeaf>;
     
     mockScheduler = {
-      getStatistics: jest.fn(),
-      isRunning: jest.fn(),
-      getConfig: jest.fn(),
-      triggerManualSync: jest.fn()
-    } as jest.Mocked<AutoSyncScheduler>;
+      getStatistics: vi.fn(),
+      isRunning: vi.fn(),
+      getConfig: vi.fn(),
+      triggerManualSync: vi.fn()
+    } as vi.Mocked<AutoSyncScheduler>;
     
-    mockBulkImportManager = {} as jest.Mocked<BulkImportManager>;
-    mockQueryEngine = {} as jest.Mocked<JQLQueryEngine>;
+    mockBulkImportManager = {} as vi.Mocked<BulkImportManager>;
+    mockQueryEngine = {} as vi.Mocked<JQLQueryEngine>;
   });
 
   describe('Construction and Basic Properties', () => {
@@ -168,7 +168,7 @@ describe('SyncStatusView', () => {
   describe('Manual Sync Triggering', () => {
     beforeEach(() => {
       // Clear Notice mock calls
-      (Notice as jest.Mock).mockClear();
+      (Notice as vi.Mock).mockClear();
     });
     it('should trigger manual sync when scheduler is available', async () => {
       mockScheduler.triggerManualSync.mockResolvedValue();
@@ -229,7 +229,7 @@ describe('SyncStatusView', () => {
       await view.onOpen();
       
       // Mock console.error to prevent error output
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation();
       
       await (view as any).triggerManualSync();
       
@@ -265,7 +265,7 @@ describe('SyncStatusView', () => {
         }
       ];
       
-      (Notice as jest.Mock).mockClear();
+      (Notice as vi.Mock).mockClear();
       
       (view as any).clearErrors();
       
@@ -340,8 +340,8 @@ describe('SyncStatusView', () => {
     
     beforeEach(() => {
       view = new SyncStatusView(mockLeaf, mockPlugin);
-      jest.spyOn(global, 'setInterval');
-      jest.spyOn(global, 'clearInterval');
+      vi.spyOn(global, 'setInterval');
+      vi.spyOn(global, 'clearInterval');
     });
 
     it('should start auto-refresh with correct interval', () => {
@@ -396,7 +396,7 @@ describe('SyncStatusView', () => {
 
     it('should stop auto-refresh on close', async () => {
       const view = new SyncStatusView(mockLeaf, mockPlugin);
-      jest.spyOn(view as any, 'stopAutoRefresh');
+      vi.spyOn(view as any, 'stopAutoRefresh');
       
       await view.onClose();
       
@@ -409,9 +409,9 @@ describe('SyncStatusView', () => {
       const view = new SyncStatusView(mockLeaf, mockPlugin);
       
       // Mock document methods
-      const mockGetElementById = jest.fn();
-      const mockAppendChild = jest.fn();
-      const mockCreateElement = jest.fn(() => ({ 
+      const mockGetElementById = vi.fn();
+      const mockAppendChild = vi.fn();
+      const mockCreateElement = vi.fn(() => ({ 
         id: '', 
         textContent: ''
       }));

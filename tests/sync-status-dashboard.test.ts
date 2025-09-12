@@ -1,4 +1,4 @@
-import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, vi, beforeEach, afterEach } from '@vitest/globals';
 import { SyncStatusDashboard, SyncStatistics, SyncError, SyncHistoryEntry } from '../src/enhanced-sync/sync-status-dashboard';
 import { AutoSyncScheduler } from '../src/enhanced-sync/auto-sync-scheduler';
 import { JQLQueryEngine } from '../src/enhanced-sync/jql-query-engine';
@@ -7,18 +7,18 @@ import { JQLQueryEngine } from '../src/enhanced-sync/jql-query-engine';
 import { App } from './__mocks__/obsidian';
 
 // Mock the scheduler and query engine
-jest.mock('../src/enhanced-sync/auto-sync-scheduler');
-jest.mock('../src/enhanced-sync/jql-query-engine');
+vi.mock('../src/enhanced-sync/auto-sync-scheduler');
+vi.mock('../src/enhanced-sync/jql-query-engine');
 
 describe('SyncStatusDashboard', () => {
   let dashboard: SyncStatusDashboard;
   let mockApp: any;
-  let mockScheduler: jest.Mocked<AutoSyncScheduler>;
-  let mockQueryEngine: jest.Mocked<JQLQueryEngine>;
+  let mockScheduler: vi.Mocked<AutoSyncScheduler>;
+  let mockQueryEngine: vi.Mocked<JQLQueryEngine>;
   let mockStatistics: SyncStatistics;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Create mock app using the proper mock class
     mockApp = new App();
@@ -42,11 +42,11 @@ describe('SyncStatusDashboard', () => {
     
     // Create mock scheduler
     mockScheduler = {
-      getStatistics: jest.fn().mockReturnValue(mockStatistics),
-      triggerManualSync: jest.fn().mockResolvedValue(undefined),
-      start: jest.fn(),
-      stop: jest.fn(),
-      updateInterval: jest.fn()
+      getStatistics: vi.fn().mockReturnValue(mockStatistics),
+      triggerManualSync: vi.fn().mockResolvedValue(undefined),
+      start: vi.fn(),
+      stop: vi.fn(),
+      updateInterval: vi.fn()
     } as any;
     
     // Create mock query engine
@@ -68,7 +68,7 @@ describe('SyncStatusDashboard', () => {
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   describe('Dashboard Initialization', () => {
@@ -142,7 +142,7 @@ describe('SyncStatusDashboard', () => {
     it('should format relative time correctly', () => {
       // Use a fixed reference time to avoid timing issues
       const now = new Date('2025-01-10T12:00:00');
-      jest.spyOn(Date, 'now').mockReturnValue(now.getTime());
+      vi.spyOn(Date, 'now').mockReturnValue(now.getTime());
       
       // Just now
       expect(formatRelativeTime(now)).toBe('just now');
@@ -165,7 +165,7 @@ describe('SyncStatusDashboard', () => {
       expect(['in 10m', 'in 11m']).toContain(futureResult); // Allow for slight variation
       
       // Restore Date.now
-      jest.restoreAllMocks();
+      vi.restoreAllMocks();
     });
 
     it('should get correct status emoji', () => {
@@ -319,7 +319,7 @@ describe('SyncStatusDashboard', () => {
 
     it('should export statistics to clipboard', async () => {
       // Arrange
-      const mockWriteText = jest.fn().mockResolvedValue(undefined);
+      const mockWriteText = vi.fn().mockResolvedValue(undefined);
       Object.assign(navigator, {
         clipboard: {
           writeText: mockWriteText
@@ -382,7 +382,7 @@ describe('SyncStatusDashboard', () => {
 
     it('should start auto-refresh when enabled', () => {
       // Arrange
-      jest.useFakeTimers();
+      vi.useFakeTimers();
       
       const refreshDashboard = new SyncStatusDashboard(
         mockApp,
@@ -395,18 +395,18 @@ describe('SyncStatusDashboard', () => {
       );
       
       // Act
-      jest.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(1000);
       
       // Assert
       expect(mockScheduler.getStatistics).toHaveBeenCalled();
       
-      jest.useRealTimers();
+      vi.useRealTimers();
     });
 
     it('should stop auto-refresh on close', () => {
       // Arrange
-      jest.useFakeTimers();
-      const clearIntervalSpy = jest.spyOn(global, 'clearInterval');
+      vi.useFakeTimers();
+      const clearIntervalSpy = vi.spyOn(global, 'clearInterval');
       
       const refreshDashboard = new SyncStatusDashboard(
         mockApp,
@@ -435,7 +435,7 @@ describe('SyncStatusDashboard', () => {
       expect(clearIntervalSpy).toHaveBeenCalled();
       expect((refreshDashboard as any).refreshInterval).toBeNull();
       
-      jest.useRealTimers();
+      vi.useRealTimers();
     });
   });
 

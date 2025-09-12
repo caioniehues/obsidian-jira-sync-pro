@@ -1,21 +1,21 @@
-import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, vi, beforeEach, afterEach } from '@vitest/globals';
 import { Plugin, TFile, Notice } from 'obsidian';
 import { BulkImportManager } from '../../src/sync/bulk-import-manager';
 import { JQLQueryEngine, JiraIssue } from '../../src/enhanced-sync/jql-query-engine';
 import { BulkImportProgress, SyncPhase } from '../../src/models/bulk-import-progress';
 
 // Mock Obsidian components
-jest.mock('obsidian');
+vi.mock('obsidian');
 
 // Mock dependencies
-jest.mock('../../src/enhanced-sync/jql-query-engine');
-jest.mock('../../src/models/bulk-import-progress');
+vi.mock('../../src/enhanced-sync/jql-query-engine');
+vi.mock('../../src/models/bulk-import-progress');
 
 describe('BulkImportManager', () => {
-  let mockPlugin: jest.Mocked<Plugin>;
-  let mockQueryEngine: jest.Mocked<JQLQueryEngine>;
+  let mockPlugin: vi.Mocked<Plugin>;
+  let mockQueryEngine: vi.Mocked<JQLQueryEngine>;
   let bulkImportManager: BulkImportManager;
-  let mockNotice: jest.MockedClass<typeof Notice>;
+  let mockNotice: vi.MockedClass<typeof Notice>;
 
   // Mock data factories
   const createMockJiraIssue = (key: string): JiraIssue => ({
@@ -46,37 +46,37 @@ describe('BulkImportManager', () => {
 
   beforeEach(() => {
     // Reset all mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Mock Plugin
     mockPlugin = {
       app: {
         vault: {
-          getAbstractFileByPath: jest.fn(),
-          createFolder: jest.fn(),
-          create: jest.fn(),
-          modify: jest.fn()
+          getAbstractFileByPath: vi.fn(),
+          createFolder: vi.fn(),
+          create: vi.fn(),
+          modify: vi.fn()
         }
       },
-      loadData: jest.fn(),
-      saveData: jest.fn()
+      loadData: vi.fn(),
+      saveData: vi.fn()
     } as any;
 
     // Mock JQLQueryEngine
     mockQueryEngine = {
-      executeQuery: jest.fn(),
-      validateQuery: jest.fn()
+      executeQuery: vi.fn(),
+      validateQuery: vi.fn()
     } as any;
 
     // Mock Notice
-    mockNotice = Notice as jest.MockedClass<typeof Notice>;
+    mockNotice = Notice as vi.MockedClass<typeof Notice>;
 
     // Create manager instance
     bulkImportManager = new BulkImportManager(mockPlugin, mockQueryEngine, 'test-sync');
   });
 
   afterEach(() => {
-    jest.resetAllMocks();
+    vi.resetAllMocks();
   });
 
   describe('Initialization and Configuration', () => {
@@ -144,7 +144,7 @@ describe('BulkImportManager', () => {
 
     it('should process multiple tickets in batches', async () => {
       // Use real timers for this test to avoid timeout issues
-      jest.useRealTimers();
+      vi.useRealTimers();
       
       const mockIssues = Array.from({ length: 50 }, (_, i) => 
         createMockJiraIssue(`TEST-${i + 1}`)
@@ -164,13 +164,13 @@ describe('BulkImportManager', () => {
       expect(mockPlugin.app.vault.create).toHaveBeenCalledTimes(50);
       
       // Restore fake timers
-      jest.useFakeTimers();
+      vi.useFakeTimers();
     }, 10000);
   });
 
   describe('Progress Tracking', () => {
     it('should report progress during import', async () => {
-      jest.useRealTimers();
+      vi.useRealTimers();
       const mockIssues = Array.from({ length: 10 }, (_, i) => 
         createMockJiraIssue(`TEST-${i + 1}`)
       );
@@ -178,7 +178,7 @@ describe('BulkImportManager', () => {
       mockPlugin.app.vault.getAbstractFileByPath.mockReturnValue(null);
       mockPlugin.app.vault.create.mockResolvedValue({} as TFile);
 
-      const progressCallback = jest.fn();
+      const progressCallback = vi.fn();
 
       await bulkImportManager.startImport({
         jqlQuery: 'project = TEST',
@@ -196,11 +196,11 @@ describe('BulkImportManager', () => {
       expect(phases).toContain(SyncPhase.PROCESSING);
       expect(phases).toContain(SyncPhase.COMPLETE);
       
-      jest.useFakeTimers();
+      vi.useFakeTimers();
     }, 10000);
 
     it('should update batch progress correctly', async () => {
-      jest.useRealTimers();
+      vi.useRealTimers();
       const mockIssues = Array.from({ length: 15 }, (_, i) => 
         createMockJiraIssue(`TEST-${i + 1}`)
       );
@@ -208,7 +208,7 @@ describe('BulkImportManager', () => {
       mockPlugin.app.vault.getAbstractFileByPath.mockReturnValue(null);
       mockPlugin.app.vault.create.mockResolvedValue({} as TFile);
 
-      const progressCallback = jest.fn();
+      const progressCallback = vi.fn();
 
       await bulkImportManager.startImport({
         jqlQuery: 'project = TEST',
@@ -228,7 +228,7 @@ describe('BulkImportManager', () => {
       expect(lastProcessingCall.currentBatch).toBeLessThanOrEqual(lastProcessingCall.totalBatches);
       expect(lastProcessingCall.totalBatches).toBe(3); // 15 tickets / 5 per batch
       
-      jest.useFakeTimers();
+      vi.useFakeTimers();
     }, 10000);
   });
 
@@ -246,7 +246,7 @@ describe('BulkImportManager', () => {
         .mockRejectedValueOnce(new Error('File creation failed'))
         .mockResolvedValueOnce({} as TFile);
 
-      const errorCallback = jest.fn();
+      const errorCallback = vi.fn();
 
       const result = await bulkImportManager.startImport({
         jqlQuery: 'project = TEST',
@@ -330,7 +330,7 @@ describe('BulkImportManager', () => {
       mockPlugin.app.vault.getAbstractFileByPath.mockReturnValue(null);
       mockPlugin.app.vault.create.mockResolvedValue({} as TFile);
 
-      const progressCallback = jest.fn();
+      const progressCallback = vi.fn();
 
       await bulkImportManager.startImport({
         jqlQuery: 'project = TEST',
@@ -440,7 +440,7 @@ describe('BulkImportManager', () => {
       mockPlugin.app.vault.getAbstractFileByPath.mockReturnValue(null);
       mockPlugin.app.vault.create.mockResolvedValue({} as TFile);
 
-      const progressCallback = jest.fn();
+      const progressCallback = vi.fn();
 
       await bulkImportManager.startImport({
         jqlQuery: 'key = TEST-1',

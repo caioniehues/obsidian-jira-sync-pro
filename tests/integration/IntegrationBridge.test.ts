@@ -127,7 +127,7 @@ describe('IntegrationBridge - Plugin Adapter Management', () => {
 
     it('should handle adapter initialization failure', async () => {
       const failingAdapter = new MockAdapter();
-      jest.spyOn(failingAdapter, 'initialize').mockRejectedValue(new Error('Init failed'));
+      vi.spyOn(failingAdapter, 'initialize').mockRejectedValue(new Error('Init failed'));
       
       const result = await bridge.registerAdapter(failingAdapter, mockPlugin);
       
@@ -150,7 +150,7 @@ describe('IntegrationBridge - Plugin Adapter Management', () => {
   describe('Adapter Lifecycle', () => {
     it('should activate adapter after registration', async () => {
       const adapter = new MockAdapter();
-      const activateSpy = jest.spyOn(adapter, 'activate');
+      const activateSpy = vi.spyOn(adapter, 'activate');
       
       await bridge.registerAdapter(adapter, mockPlugin);
       await bridge.activateAdapter('mock-adapter');
@@ -161,7 +161,7 @@ describe('IntegrationBridge - Plugin Adapter Management', () => {
 
     it('should deactivate active adapter', async () => {
       const adapter = new MockAdapter();
-      const deactivateSpy = jest.spyOn(adapter, 'deactivate');
+      const deactivateSpy = vi.spyOn(adapter, 'deactivate');
       
       await bridge.registerAdapter(adapter, mockPlugin);
       await bridge.activateAdapter('mock-adapter');
@@ -173,7 +173,7 @@ describe('IntegrationBridge - Plugin Adapter Management', () => {
 
     it('should unregister adapter and clean up', async () => {
       const adapter = new MockAdapter();
-      const cleanupSpy = jest.spyOn(adapter, 'cleanup');
+      const cleanupSpy = vi.spyOn(adapter, 'cleanup');
       
       await bridge.registerAdapter(adapter, mockPlugin);
       await bridge.unregisterAdapter('mock-adapter');
@@ -201,11 +201,11 @@ describe('IntegrationBridge - Plugin Adapter Management', () => {
       
       // Should activate base before dependent
       const activationOrder: string[] = [];
-      jest.spyOn(baseAdapter, 'activate').mockImplementation(async () => {
+      vi.spyOn(baseAdapter, 'activate').mockImplementation(async () => {
         activationOrder.push('base');
         baseAdapter.state = AdapterState.ACTIVE;
       });
-      jest.spyOn(dependentAdapter, 'activate').mockImplementation(async () => {
+      vi.spyOn(dependentAdapter, 'activate').mockImplementation(async () => {
         activationOrder.push('dependent');
         dependentAdapter.state = AdapterState.ACTIVE;
       });
@@ -256,8 +256,8 @@ describe('IntegrationBridge - Plugin Adapter Management', () => {
     it('should clean up all adapters on bridge cleanup', async () => {
       const adapter1 = new MockAdapter();
       const adapter2 = new DependentAdapter();
-      const cleanup1Spy = jest.spyOn(adapter1, 'cleanup');
-      const cleanup2Spy = jest.spyOn(adapter2, 'cleanup');
+      const cleanup1Spy = vi.spyOn(adapter1, 'cleanup');
+      const cleanup2Spy = vi.spyOn(adapter2, 'cleanup');
       
       await bridge.registerAdapter(adapter1, mockPlugin);
       await bridge.registerAdapter(adapter2, mockPlugin);
@@ -311,7 +311,7 @@ describe('IntegrationBridge - Plugin Adapter Management', () => {
   describe('Error Recovery', () => {
     it('should handle adapter error and attempt recovery', async () => {
       const adapter = new MockAdapter();
-      const recoverSpy = jest.fn().mockResolvedValue(true);
+      const recoverSpy = vi.fn().mockResolvedValue(true);
       adapter.recover = recoverSpy;
       
       await bridge.registerAdapter(adapter, mockPlugin);
@@ -326,7 +326,7 @@ describe('IntegrationBridge - Plugin Adapter Management', () => {
 
     it('should emit error events for adapter failures', (done) => {
       const adapter = new MockAdapter();
-      jest.spyOn(adapter, 'initialize').mockRejectedValue(new Error('Test error'));
+      vi.spyOn(adapter, 'initialize').mockRejectedValue(new Error('Test error'));
       
       bridge.registerAdapter(adapter, mockPlugin);
       // Test passes if no exception is thrown

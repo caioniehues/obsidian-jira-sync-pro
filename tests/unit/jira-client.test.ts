@@ -1,13 +1,13 @@
-import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, vi, beforeEach, afterEach } from '@vitest/globals';
 import { JiraClient, JiraClientConfig, SearchParams, SearchResponse } from '../../src/jira-bases-adapter/jira-client';
 import { requestUrl, RequestUrlResponse } from 'obsidian';
 
 // Mock Obsidian's requestUrl
-jest.mock('obsidian');
+vi.mock('obsidian');
 
 describe('JiraClient', () => {
   let jiraClient: JiraClient;
-  let mockRequestUrl: jest.MockedFunction<typeof requestUrl>;
+  let mockRequestUrl: vi.MockedFunction<typeof requestUrl>;
   
   const validConfig: JiraClientConfig = {
     baseUrl: 'https://test.atlassian.net',
@@ -17,13 +17,13 @@ describe('JiraClient', () => {
 
   beforeEach(() => {
     // Reset all mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Create fresh instance
     jiraClient = new JiraClient();
     
     // Setup requestUrl mock with default success response
-    mockRequestUrl = requestUrl as jest.MockedFunction<typeof requestUrl>;
+    mockRequestUrl = requestUrl as vi.MockedFunction<typeof requestUrl>;
     mockRequestUrl.mockResolvedValue({
       status: 200,
       headers: { 'content-type': 'application/json' },
@@ -34,7 +34,7 @@ describe('JiraClient', () => {
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   describe('Configuration and Initialization', () => {

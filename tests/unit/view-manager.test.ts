@@ -1,4 +1,4 @@
-import { jest } from '@jest/globals';
+import { jest } from '@vitest/globals';
 import { App, Plugin, Workspace, WorkspaceLeaf } from 'obsidian';
 import { SyncViewManager } from '../../src/sync/view-manager';
 import { SYNC_STATUS_VIEW_TYPE } from '../../src/sync/sync-status-view';
@@ -7,49 +7,49 @@ import { BulkImportManager } from '../../src/enhanced-sync/bulk-import-manager';
 import { JQLQueryEngine } from '../../src/enhanced-sync/jql-query-engine';
 
 describe('SyncViewManager', () => {
-  let mockApp: jest.Mocked<App>;
-  let mockWorkspace: jest.Mocked<Workspace>;
-  let mockPlugin: jest.Mocked<Plugin>;
-  let mockLeaf: jest.Mocked<WorkspaceLeaf>;
-  let mockScheduler: jest.Mocked<AutoSyncScheduler>;
-  let mockBulkImportManager: jest.Mocked<BulkImportManager>;
-  let mockQueryEngine: jest.Mocked<JQLQueryEngine>;
+  let mockApp: vi.Mocked<App>;
+  let mockWorkspace: vi.Mocked<Workspace>;
+  let mockPlugin: vi.Mocked<Plugin>;
+  let mockLeaf: vi.Mocked<WorkspaceLeaf>;
+  let mockScheduler: vi.Mocked<AutoSyncScheduler>;
+  let mockBulkImportManager: vi.Mocked<BulkImportManager>;
+  let mockQueryEngine: vi.Mocked<JQLQueryEngine>;
   let viewManager: SyncViewManager;
 
   beforeEach(() => {
     // Clear all mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Setup mock workspace
     mockWorkspace = {
-      getLeavesOfType: jest.fn(),
-      getRightLeaf: jest.fn(),
-      revealLeaf: jest.fn()
-    } as jest.Mocked<Workspace>;
+      getLeavesOfType: vi.fn(),
+      getRightLeaf: vi.fn(),
+      revealLeaf: vi.fn()
+    } as vi.Mocked<Workspace>;
     
     // Setup mock app
     mockApp = {
       workspace: mockWorkspace
-    } as jest.Mocked<App>;
+    } as vi.Mocked<App>;
     
     // Setup mock leaf
     mockLeaf = {
-      setViewState: jest.fn(),
-      detach: jest.fn()
-    } as jest.Mocked<WorkspaceLeaf>;
+      setViewState: vi.fn(),
+      detach: vi.fn()
+    } as vi.Mocked<WorkspaceLeaf>;
     
     // Setup mock plugin
     mockPlugin = {
       app: mockApp,
-      registerView: jest.fn(),
-      addRibbonIcon: jest.fn(),
-      addCommand: jest.fn()
-    } as jest.Mocked<Plugin>;
+      registerView: vi.fn(),
+      addRibbonIcon: vi.fn(),
+      addCommand: vi.fn()
+    } as vi.Mocked<Plugin>;
     
     // Setup mock components
-    mockScheduler = {} as jest.Mocked<AutoSyncScheduler>;
-    mockBulkImportManager = {} as jest.Mocked<BulkImportManager>;
-    mockQueryEngine = {} as jest.Mocked<JQLQueryEngine>;
+    mockScheduler = {} as vi.Mocked<AutoSyncScheduler>;
+    mockBulkImportManager = {} as vi.Mocked<BulkImportManager>;
+    mockQueryEngine = {} as vi.Mocked<JQLQueryEngine>;
     
     viewManager = new SyncViewManager(mockPlugin);
   });
@@ -88,7 +88,7 @@ describe('SyncViewManager', () => {
       viewManager.registerViews();
       
       // Get the factory function
-      const registerViewCall = (mockPlugin.registerView as jest.Mock).mock.calls[0];
+      const registerViewCall = (mockPlugin.registerView as vi.Mock).mock.calls[0];
       const viewFactory = registerViewCall[1];
       
       // Call factory function
@@ -147,8 +147,8 @@ describe('SyncViewManager', () => {
     });
 
     it('should close all sync status views', async () => {
-      const mockLeaf1 = { detach: jest.fn() } as jest.Mocked<WorkspaceLeaf>;
-      const mockLeaf2 = { detach: jest.fn() } as jest.Mocked<WorkspaceLeaf>;
+      const mockLeaf1 = { detach: vi.fn() } as vi.Mocked<WorkspaceLeaf>;
+      const mockLeaf2 = { detach: vi.fn() } as vi.Mocked<WorkspaceLeaf>;
       
       mockWorkspace.getLeavesOfType.mockReturnValue([mockLeaf1, mockLeaf2]);
       
@@ -172,7 +172,7 @@ describe('SyncViewManager', () => {
     it('should update components when status view exists', () => {
       // Create a mock status view
       const mockStatusView = {
-        updateComponents: jest.fn()
+        updateComponents: vi.fn()
       };
       
       // Set the status view
@@ -228,12 +228,12 @@ describe('SyncViewManager', () => {
 
   describe('Ribbon Icon and Command Callbacks', () => {
     it('should call activateSyncStatusView when ribbon icon is clicked', () => {
-      const activateSpy = jest.spyOn(viewManager, 'activateSyncStatusView').mockResolvedValue();
+      const activateSpy = vi.spyOn(viewManager, 'activateSyncStatusView').mockResolvedValue();
       
       viewManager.registerViews();
       
       // Get the ribbon icon callback
-      const ribbonCall = (mockPlugin.addRibbonIcon as jest.Mock).mock.calls[0];
+      const ribbonCall = (mockPlugin.addRibbonIcon as vi.Mock).mock.calls[0];
       const ribbonCallback = ribbonCall[2];
       
       ribbonCallback();
@@ -242,12 +242,12 @@ describe('SyncViewManager', () => {
     });
 
     it('should call activateSyncStatusView when command is executed', () => {
-      const activateSpy = jest.spyOn(viewManager, 'activateSyncStatusView').mockResolvedValue();
+      const activateSpy = vi.spyOn(viewManager, 'activateSyncStatusView').mockResolvedValue();
       
       viewManager.registerViews();
       
       // Get the command callback
-      const commandCall = (mockPlugin.addCommand as jest.Mock).mock.calls[0];
+      const commandCall = (mockPlugin.addCommand as vi.Mock).mock.calls[0];
       const commandCallback = commandCall[0].callback;
       
       commandCallback();
@@ -258,7 +258,7 @@ describe('SyncViewManager', () => {
 
   describe('Cleanup', () => {
     it('should close sync status view on unload', async () => {
-      const closeSpy = jest.spyOn(viewManager, 'closeSyncStatusView').mockResolvedValue();
+      const closeSpy = vi.spyOn(viewManager, 'closeSyncStatusView').mockResolvedValue();
       
       viewManager.onunload();
       
@@ -275,7 +275,7 @@ describe('SyncViewManager', () => {
       viewManager.registerViews();
       
       // Create a new view through the factory
-      const registerViewCall = (mockPlugin.registerView as jest.Mock).mock.calls[0];
+      const registerViewCall = (mockPlugin.registerView as vi.Mock).mock.calls[0];
       const viewFactory = registerViewCall[1];
       const view = viewFactory(mockLeaf);
       
@@ -289,7 +289,7 @@ describe('SyncViewManager', () => {
 
     it('should handle partial component updates', () => {
       const mockStatusView = {
-        updateComponents: jest.fn()
+        updateComponents: vi.fn()
       };
       
       viewManager.registerViews();
@@ -318,8 +318,8 @@ describe('SyncViewManager', () => {
 
     it('should handle detach errors gracefully', async () => {
       const mockLeaf1 = { 
-        detach: jest.fn().mockRejectedValue(new Error('Detach failed'))
-      } as jest.Mocked<WorkspaceLeaf>;
+        detach: vi.fn().mockRejectedValue(new Error('Detach failed'))
+      } as vi.Mocked<WorkspaceLeaf>;
       
       mockWorkspace.getLeavesOfType.mockReturnValue([mockLeaf1]);
       

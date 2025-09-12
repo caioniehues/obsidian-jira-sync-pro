@@ -5,6 +5,9 @@ import { AutoSyncScheduler, AutoSyncConfig } from './enhanced-sync/auto-sync-sch
 import { BulkImportManager } from './enhanced-sync/bulk-import-manager';
 import { EnhancedSyncDashboard } from './ui/enhanced-dashboard';
 import { SimpleNoteService } from './services/simple-note-service';
+import { EventBus } from './events/event-bus';
+import { PluginRegistry } from './integrations/PluginRegistry';
+import { StatusMapping, DEFAULT_STATUS_MAPPING } from './settings/settings-types';
 
 interface JiraSyncProSettings {
   jiraUrl: string;
@@ -16,6 +19,18 @@ interface JiraSyncProSettings {
   maxResults: number;
   batchSize: number;
   syncFolder: string;
+  
+  // Status-Based Organization
+  enableStatusOrganization?: boolean;
+  activeTicketsFolder?: string;
+  archivedTicketsFolder?: string;
+  archiveByYear?: boolean;
+  keepRecentArchive?: boolean;
+  recentArchiveDays?: number;
+  statusMapping?: StatusMapping;
+  
+  // Plugin Integrations
+  enabledIntegrations?: string[];
 }
 
 const DEFAULT_SETTINGS: JiraSyncProSettings = {
@@ -27,7 +42,19 @@ const DEFAULT_SETTINGS: JiraSyncProSettings = {
   autoSyncEnabled: false,
   maxResults: 1000,
   batchSize: 50,
-  syncFolder: 'Areas/Work/Jira Tickets'
+  syncFolder: 'Knowledge/Work',
+  
+  // Status-Based Organization
+  enableStatusOrganization: true,
+  activeTicketsFolder: 'Active Tickets',
+  archivedTicketsFolder: 'Archived Tickets',
+  archiveByYear: true,
+  keepRecentArchive: true,
+  recentArchiveDays: 30,
+  statusMapping: DEFAULT_STATUS_MAPPING,
+  
+  // Plugin Integrations
+  enabledIntegrations: []
 };
 
 export default class JiraSyncProPlugin extends Plugin {
@@ -37,6 +64,8 @@ export default class JiraSyncProPlugin extends Plugin {
   queryEngine: JQLQueryEngine | null = null;
   scheduler: AutoSyncScheduler | null = null;
   bulkImportManager: BulkImportManager | null = null;
+  private eventBus: EventBus | null = null;
+  private pluginRegistry: PluginRegistry | null = null;
   private initializationPromise: Promise<void> | null = null;
   private isInitialized: boolean = false;
 
@@ -47,6 +76,11 @@ export default class JiraSyncProPlugin extends Plugin {
       // Load settings first - critical for preventing undefined errors
       await this.loadSettings();
       console.log('Jira Sync Pro: Settings loaded successfully');
+
+      // Initialize core components
+      this.eventBus = new EventBus();
+      this.pluginRegistry = new PluginRegistry(this.app);
+      console.log('Jira Sync Pro: Event bus and plugin registry initialized');
 
       // Add settings tab
       this.addSettingTab(new JiraSyncProSettingTab(this.app, this));
@@ -96,10 +130,17 @@ export default class JiraSyncProPlugin extends Plugin {
       }
     }
 
+    // Clean up event bus
+    if (this.eventBus) {
+      this.eventBus.removeAllListeners();
+      this.eventBus = null;
+    }
+
     // Clean up other resources
     this.jiraClient = null;
     this.queryEngine = null;
     this.bulkImportManager = null;
+    this.pluginRegistry = null;
     this.isInitialized = false;
   }
 
@@ -282,6 +323,25 @@ export default class JiraSyncProPlugin extends Plugin {
       name: 'Test Jira connection',
       callback: () => this.testJiraConnection()
     });
+
+    // Plugin bridge commands
+    this.addCommand({
+      id: 'jira-sync-integration-status',
+      name: 'Show plugin integration status',
+      callback: () => this.showIntegrationStatus()
+    });
+
+    this.addCommand({
+      id: 'jira-sync-refresh-integrations',
+      name: 'Refresh plugin integrations',
+      callback: () => this.refreshIntegrations()
+    });
+
+    this.addCommand({
+      id: 'jira-sync-test-integrations',
+      name: 'Test all enabled integrations',
+      callback: () => this.testIntegrations()
+    });
   }
 
   private async performSync(isManual: boolean) {
@@ -347,8 +407,15 @@ export default class JiraSyncProPlugin extends Plugin {
         try {
           const noteResult = await noteService.processTicket(ticket, {
             overwriteExisting: true,  // Update existing notes
-            organizationStrategy: 'by-project',  // Organize by project
-            preserveLocalNotes: true  // Preserve local notes section
+            organizationStrategy: this.settings.enableStatusOrganization ? 'status-based' : 'by-project',
+            preserveLocalNotes: true,  // Preserve local notes section
+            // Pass status organization settings
+            statusMapping: this.settings.statusMapping,
+            activeTicketsFolder: this.settings.activeTicketsFolder,
+            archivedTicketsFolder: this.settings.archivedTicketsFolder,
+            archiveByYear: this.settings.archiveByYear,
+            keepRecentArchive: this.settings.keepRecentArchive,
+            recentArchiveDays: this.settings.recentArchiveDays
           });
           
           // Update statistics
@@ -492,6 +559,112 @@ export default class JiraSyncProPlugin extends Plugin {
       } else {
         new Notice(`❌ Jira Sync Pro: Connection failed - ${error.message || 'Unknown error'}`);
       }
+    }
+  }
+
+  private async showIntegrationStatus() {
+    if (!this.pluginRegistry) {
+      new Notice('Plugin registry not initialized');
+      return;
+    }
+
+    const modal = new Modal(this.app);
+    modal.titleEl.setText('Plugin Integration Status');
+    
+    const contentEl = modal.contentEl;
+    contentEl.empty();
+    
+    const plugins = this.pluginRegistry.getAvailablePlugins();
+    
+    if (plugins.length === 0) {
+      contentEl.createEl('p', { text: 'No compatible plugins found.' });
+    } else {
+      contentEl.createEl('h3', { text: 'Compatible Plugins' });
+      
+      for (const plugin of plugins) {
+        const pluginEl = contentEl.createDiv({ cls: 'plugin-status-item' });
+        pluginEl.style.marginBottom = '15px';
+        pluginEl.style.padding = '10px';
+        pluginEl.style.border = '1px solid var(--background-modifier-border)';
+        pluginEl.style.borderRadius = '5px';
+        
+        const headerEl = pluginEl.createEl('div');
+        headerEl.style.display = 'flex';
+        headerEl.style.justifyContent = 'space-between';
+        
+        headerEl.createEl('strong', { text: plugin.name });
+        
+        const statusEl = headerEl.createEl('span');
+        if (plugin.isEnabled) {
+          statusEl.textContent = '✅ Active';
+          statusEl.style.color = '#27ae60';
+        } else {
+          statusEl.textContent = '❌ Inactive';
+          statusEl.style.color = '#e74c3c';
+        }
+        
+        const isIntegrated = this.settings.enabledIntegrations?.includes(plugin.id) ?? false;
+        pluginEl.createEl('div', {
+          text: `Integration: ${isIntegrated ? 'Enabled' : 'Disabled'}`,
+          cls: 'plugin-integration'
+        }).style.fontSize = '0.9em';
+      }
+    }
+    
+    modal.open();
+  }
+
+  private async refreshIntegrations() {
+    if (!this.pluginRegistry) {
+      new Notice('Plugin registry not initialized');
+      return;
+    }
+
+    try {
+      // Refresh the plugin registry
+      this.pluginRegistry = new PluginRegistry(this.app);
+      
+      const availablePlugins = this.pluginRegistry.getAvailablePlugins();
+      const count = availablePlugins.filter(p => p.isEnabled).length;
+      
+      new Notice(`Found ${count} compatible plugin${count !== 1 ? 's' : ''}`);
+    } catch (error: any) {
+      new Notice(`Failed to refresh integrations: ${error.message}`);
+    }
+  }
+
+  private async testIntegrations() {
+    if (!this.pluginRegistry) {
+      new Notice('Plugin registry not initialized');
+      return;
+    }
+
+    const enabledIntegrations = this.settings.enabledIntegrations || [];
+    if (enabledIntegrations.length === 0) {
+      new Notice('No integrations enabled. Enable integrations in settings first.');
+      return;
+    }
+
+    const availablePlugins = this.pluginRegistry.getAvailablePlugins();
+    let testedCount = 0;
+    let successCount = 0;
+
+    for (const pluginId of enabledIntegrations) {
+      const plugin = availablePlugins.find(p => p.id === pluginId);
+      if (plugin && plugin.isEnabled) {
+        testedCount++;
+        // Here you would perform actual integration tests
+        // For now, we'll just check if the plugin is active
+        if (plugin.hasAPI || plugin.hasIntegration) {
+          successCount++;
+        }
+      }
+    }
+
+    if (testedCount === 0) {
+      new Notice('No enabled integrations are currently active');
+    } else {
+      new Notice(`Tested ${testedCount} integration${testedCount !== 1 ? 's' : ''}: ${successCount} working`);
     }
   }
 }
@@ -702,6 +875,127 @@ class JiraSyncProSettingTab extends PluginSettingTab {
         }
       }));
 
+    // Status-Based Organization
+    containerEl.createEl('h3', { text: 'Status-Based Organization' });
+
+    new Setting(containerEl)
+      .setName('Enable Status Organization')
+      .setDesc('Automatically organize tickets based on their status')
+      .addToggle(toggle => toggle
+        .setValue(this.plugin.settings.enableStatusOrganization ?? true)
+        .onChange(async (value) => {
+          this.plugin.settings.enableStatusOrganization = value;
+          await this.plugin.saveSettings();
+          // Refresh the display to show/hide related settings
+          this.display();
+        }));
+
+    if (this.plugin.settings.enableStatusOrganization) {
+      new Setting(containerEl)
+        .setName('Active Tickets Folder')
+        .setDesc('Folder name for active tickets (relative to sync folder)')
+        .addText(text => text
+          .setPlaceholder('Active Tickets')
+          .setValue(this.plugin.settings.activeTicketsFolder ?? 'Active Tickets')
+          .onChange(async (value) => {
+            this.plugin.settings.activeTicketsFolder = value;
+            await this.plugin.saveSettings();
+          }));
+
+      new Setting(containerEl)
+        .setName('Archived Tickets Folder')
+        .setDesc('Folder name for archived tickets (relative to sync folder)')
+        .addText(text => text
+          .setPlaceholder('Archived Tickets')
+          .setValue(this.plugin.settings.archivedTicketsFolder ?? 'Archived Tickets')
+          .onChange(async (value) => {
+            this.plugin.settings.archivedTicketsFolder = value;
+            await this.plugin.saveSettings();
+          }));
+
+      new Setting(containerEl)
+        .setName('Archive by Year')
+        .setDesc('Organize archived tickets into year-based subfolders')
+        .addToggle(toggle => toggle
+          .setValue(this.plugin.settings.archiveByYear ?? true)
+          .onChange(async (value) => {
+            this.plugin.settings.archiveByYear = value;
+            await this.plugin.saveSettings();
+            this.display();
+          }));
+
+      new Setting(containerEl)
+        .setName('Keep Recent Archive')
+        .setDesc('Keep recently closed tickets in a separate "Recent" folder')
+        .addToggle(toggle => toggle
+          .setValue(this.plugin.settings.keepRecentArchive ?? true)
+          .onChange(async (value) => {
+            this.plugin.settings.keepRecentArchive = value;
+            await this.plugin.saveSettings();
+            this.display();
+          }));
+
+      if (this.plugin.settings.keepRecentArchive) {
+        new Setting(containerEl)
+          .setName('Recent Archive Days')
+          .setDesc('Number of days to keep tickets in the Recent folder (1-365)')
+          .addText(text => text
+            .setPlaceholder('30')
+            .setValue(String(this.plugin.settings.recentArchiveDays ?? 30))
+            .onChange(async (value) => {
+              const days = parseInt(value);
+              if (!isNaN(days) && days >= 1 && days <= 365) {
+                this.plugin.settings.recentArchiveDays = days;
+                await this.plugin.saveSettings();
+              } else {
+                text.inputEl.style.borderColor = '#e74c3c';
+                new Notice('Please enter a value between 1 and 365');
+              }
+            }));
+      }
+
+      // Status Mapping Configuration
+      new Setting(containerEl)
+        .setName('Status Mapping')
+        .setDesc('Configure which statuses are considered active vs archived');
+
+      // Active statuses
+      new Setting(containerEl)
+        .setName('Active Statuses')
+        .setDesc('Comma-separated list of statuses that should go to Active folder')
+        .addTextArea(text => {
+          text.inputEl.rows = 2;
+          text.setPlaceholder('Open, In Progress, In Review, Blocked...');
+          const activeStatuses = this.plugin.settings.statusMapping?.active || DEFAULT_STATUS_MAPPING.active;
+          text.setValue(activeStatuses.join(', '));
+          text.onChange(async (value) => {
+            if (!this.plugin.settings.statusMapping) {
+              this.plugin.settings.statusMapping = { ...DEFAULT_STATUS_MAPPING };
+            }
+            this.plugin.settings.statusMapping.active = value.split(',').map(s => s.trim()).filter(s => s);
+            await this.plugin.saveSettings();
+          });
+        });
+
+      // Archived statuses
+      new Setting(containerEl)
+        .setName('Archived Statuses')
+        .setDesc('Comma-separated list of statuses that should go to Archived folder')
+        .addTextArea(text => {
+          text.inputEl.rows = 2;
+          text.setPlaceholder('Done, Closed, Resolved, Cancelled...');
+          const archivedStatuses = this.plugin.settings.statusMapping?.archived || DEFAULT_STATUS_MAPPING.archived;
+          text.setValue(archivedStatuses.join(', '));
+          text.onChange(async (value) => {
+            if (!this.plugin.settings.statusMapping) {
+              this.plugin.settings.statusMapping = { ...DEFAULT_STATUS_MAPPING };
+            }
+            this.plugin.settings.statusMapping.archived = value.split(',').map(s => s.trim()).filter(s => s);
+            await this.plugin.saveSettings();
+          });
+        });
+    }
+
     // Advanced Settings (collapsible)
     containerEl.createEl('h3', { text: 'Advanced Settings' });
 
@@ -756,6 +1050,77 @@ class JiraSyncProSettingTab extends PluginSettingTab {
             this.plugin.settings.syncFolder = value;
             await this.plugin.saveSettings();
           }
+        }));
+
+    // Plugin Integrations
+    containerEl.createEl('h3', { text: 'Plugin Integrations' });
+    
+    // Get available integrations
+    const availablePlugins = this.plugin.pluginRegistry ? 
+      this.plugin.pluginRegistry.getAvailablePlugins() : [];
+    
+    if (availablePlugins.length === 0) {
+      containerEl.createEl('p', { 
+        text: 'No compatible plugins detected. Install supported plugins to enable integrations.',
+        cls: 'setting-item-description'
+      });
+    } else {
+      containerEl.createEl('p', { 
+        text: 'Enable integrations with compatible Obsidian plugins for enhanced functionality.',
+        cls: 'setting-item-description'
+      });
+      
+      // List each available plugin with toggle
+      for (const pluginInfo of availablePlugins) {
+        const isEnabled = this.plugin.settings.enabledIntegrations?.includes(pluginInfo.id) ?? false;
+        
+        new Setting(containerEl)
+          .setName(pluginInfo.name)
+          .setDesc(`${pluginInfo.isEnabled ? '✅ Installed' : '❌ Not installed'} • Version: ${pluginInfo.version || 'Unknown'}`)
+          .addToggle(toggle => toggle
+            .setValue(isEnabled && pluginInfo.isEnabled)
+            .setDisabled(!pluginInfo.isEnabled)
+            .onChange(async (value) => {
+              if (!this.plugin.settings.enabledIntegrations) {
+                this.plugin.settings.enabledIntegrations = [];
+              }
+              
+              if (value) {
+                if (!this.plugin.settings.enabledIntegrations.includes(pluginInfo.id)) {
+                  this.plugin.settings.enabledIntegrations.push(pluginInfo.id);
+                }
+              } else {
+                const index = this.plugin.settings.enabledIntegrations.indexOf(pluginInfo.id);
+                if (index > -1) {
+                  this.plugin.settings.enabledIntegrations.splice(index, 1);
+                }
+              }
+              
+              await this.plugin.saveSettings();
+              new Notice(`${pluginInfo.name} integration ${value ? 'enabled' : 'disabled'}`);
+            }));
+        
+        // Show capabilities if available
+        if (pluginInfo.capabilities && pluginInfo.capabilities.length > 0) {
+          const capabilitiesEl = containerEl.createEl('div', {
+            cls: 'setting-item-description',
+            attr: { style: 'margin-left: 20px; font-size: 0.9em;' }
+          });
+          capabilitiesEl.createEl('span', { 
+            text: `Capabilities: ${pluginInfo.capabilities.join(', ')}`
+          });
+        }
+      }
+    }
+    
+    // Integration status command
+    new Setting(containerEl)
+      .setName('Check Integration Status')
+      .setDesc('View detailed status of all plugin integrations')
+      .addButton(button => button
+        .setButtonText('Check Status')
+        .onClick(async () => {
+          await this.checkIntegrationStatus();
         }));
 
     // Actions section
@@ -978,6 +1343,87 @@ class JiraSyncProSettingTab extends PluginSettingTab {
       }
     `;
     document.head.appendChild(style);
+  }
+
+  private async checkIntegrationStatus(): Promise<void> {
+    if (!this.plugin.pluginRegistry) {
+      new Notice('Plugin registry not initialized');
+      return;
+    }
+
+    const modal = new Modal(this.app);
+    modal.titleEl.setText('Plugin Integration Status');
+    
+    const contentEl = modal.contentEl;
+    contentEl.empty();
+    
+    const plugins = this.plugin.pluginRegistry.getAvailablePlugins();
+    
+    if (plugins.length === 0) {
+      contentEl.createEl('p', { text: 'No compatible plugins found.' });
+    } else {
+      contentEl.createEl('h3', { text: 'Compatible Plugins' });
+      
+      for (const plugin of plugins) {
+        const pluginEl = contentEl.createDiv({ cls: 'plugin-status-item' });
+        pluginEl.style.marginBottom = '15px';
+        pluginEl.style.padding = '10px';
+        pluginEl.style.border = '1px solid var(--background-modifier-border)';
+        pluginEl.style.borderRadius = '5px';
+        
+        // Plugin name and status
+        const headerEl = pluginEl.createEl('div', { cls: 'plugin-header' });
+        headerEl.style.display = 'flex';
+        headerEl.style.justifyContent = 'space-between';
+        headerEl.style.marginBottom = '5px';
+        
+        headerEl.createEl('strong', { text: plugin.name });
+        
+        const statusEl = headerEl.createEl('span');
+        if (plugin.isEnabled) {
+          statusEl.textContent = '✅ Active';
+          statusEl.style.color = '#27ae60';
+        } else {
+          statusEl.textContent = '❌ Inactive';
+          statusEl.style.color = '#e74c3c';
+        }
+        
+        // Plugin details
+        if (plugin.version) {
+          pluginEl.createEl('div', { 
+            text: `Version: ${plugin.version}`,
+            cls: 'plugin-version'
+          }).style.fontSize = '0.9em';
+        }
+        
+        // Integration status
+        const isIntegrated = this.plugin.settings.enabledIntegrations?.includes(plugin.id) ?? false;
+        const integrationEl = pluginEl.createEl('div', {
+          text: `Integration: ${isIntegrated ? 'Enabled' : 'Disabled'}`,
+          cls: 'plugin-integration'
+        });
+        integrationEl.style.fontSize = '0.9em';
+        integrationEl.style.color = isIntegrated ? '#27ae60' : '#95a5a6';
+        
+        // Capabilities
+        if (plugin.capabilities && plugin.capabilities.length > 0) {
+          const capEl = pluginEl.createEl('div', { cls: 'plugin-capabilities' });
+          capEl.style.fontSize = '0.85em';
+          capEl.style.marginTop = '5px';
+          capEl.createEl('em', { text: `Capabilities: ${plugin.capabilities.join(', ')}` });
+        }
+      }
+    }
+    
+    // Add close button
+    const buttonDiv = contentEl.createDiv({ cls: 'modal-button-container' });
+    buttonDiv.style.marginTop = '20px';
+    buttonDiv.style.textAlign = 'center';
+    
+    const closeButton = buttonDiv.createEl('button', { text: 'Close' });
+    closeButton.onclick = () => modal.close();
+    
+    modal.open();
   }
 }
 

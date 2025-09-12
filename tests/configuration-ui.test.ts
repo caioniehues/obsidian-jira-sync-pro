@@ -1,12 +1,12 @@
-import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, vi, beforeEach, afterEach } from '@vitest/globals';
 
 // Mock Obsidian before any other imports
-jest.mock('obsidian');
+vi.mock('obsidian');
 
 import { App, Setting, PluginSettingTab, Notice } from 'obsidian';
 
 // Mock the main plugin file to avoid importing BulkImportModal
-jest.mock('../src/main', () => {
+vi.mock('../src/main', () => {
   const { Plugin } = require('obsidian');
   
   class JiraSyncProPlugin extends Plugin {
@@ -56,27 +56,27 @@ describe('Configuration UI', () => {
   let settingsTab: any;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Create mock app
     mockApp = {
       vault: {
         adapter: {
-          exists: jest.fn().mockResolvedValue(false),
-          list: jest.fn().mockResolvedValue({ files: [], folders: [] })
+          exists: vi.fn().mockResolvedValue(false),
+          list: vi.fn().mockResolvedValue({ files: [], folders: [] })
         },
-        create: jest.fn().mockResolvedValue(undefined),
-        modify: jest.fn().mockResolvedValue(undefined),
-        createFolder: jest.fn().mockResolvedValue(undefined),
-        getAbstractFileByPath: jest.fn().mockReturnValue(null)
+        create: vi.fn().mockResolvedValue(undefined),
+        modify: vi.fn().mockResolvedValue(undefined),
+        createFolder: vi.fn().mockResolvedValue(undefined),
+        getAbstractFileByPath: vi.fn().mockReturnValue(null)
       }
     };
     
     // Create plugin instance
     plugin = new JiraSyncProPlugin();
     plugin.app = mockApp;
-    plugin.loadData = jest.fn().mockResolvedValue({});
-    plugin.saveData = jest.fn().mockResolvedValue(undefined);
+    plugin.loadData = vi.fn().mockResolvedValue({});
+    plugin.saveData = vi.fn().mockResolvedValue(undefined);
     
     // Initialize plugin settings
     plugin.settings = {
@@ -92,7 +92,7 @@ describe('Configuration UI', () => {
     };
 
     // Mock saveSettings as a jest spy
-    plugin.saveSettings = jest.fn().mockImplementation(async () => {
+    plugin.saveSettings = vi.fn().mockImplementation(async () => {
       await plugin.saveData(plugin.settings);
       if (plugin.settings.jiraUrl && plugin.settings.jiraApiToken) {
         plugin.initializeJiraComponents();
@@ -101,7 +101,7 @@ describe('Configuration UI', () => {
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   describe('Settings Persistence', () => {
@@ -119,7 +119,7 @@ describe('Configuration UI', () => {
         syncFolder: 'Custom Folder'
       };
       
-      plugin.loadData = jest.fn().mockResolvedValue(savedSettings);
+      plugin.loadData = vi.fn().mockResolvedValue(savedSettings);
       
       // Act
       await plugin.loadSettings();
@@ -136,7 +136,7 @@ describe('Configuration UI', () => {
         syncInterval: 15
       };
       
-      plugin.loadData = jest.fn().mockResolvedValue(partialSettings);
+      plugin.loadData = vi.fn().mockResolvedValue(partialSettings);
       
       // Act
       await plugin.loadSettings();
@@ -168,7 +168,7 @@ describe('Configuration UI', () => {
       plugin.settings.jiraUrl = 'https://test.atlassian.net';
       plugin.settings.jiraApiToken = 'token123';
       
-      const initSpy = jest.spyOn(plugin as any, 'initializeJiraComponents');
+      const initSpy = vi.spyOn(plugin as any, 'initializeJiraComponents');
       
       // Act
       await plugin.saveSettings();
@@ -395,19 +395,19 @@ describe('Configuration UI', () => {
         app: mockApp,
         plugin: plugin,
         containerEl: {
-          empty: jest.fn(),
-          createEl: jest.fn().mockReturnValue({
-            createEl: jest.fn(),
-            createDiv: jest.fn().mockReturnValue({
-              createEl: jest.fn().mockReturnValue({
+          empty: vi.fn(),
+          createEl: vi.fn().mockReturnValue({
+            createEl: vi.fn(),
+            createDiv: vi.fn().mockReturnValue({
+              createEl: vi.fn().mockReturnValue({
                 value: '',
-                addEventListener: jest.fn(),
+                addEventListener: vi.fn(),
                 style: {}
               })
             })
           })
         },
-        display: jest.fn()
+        display: vi.fn()
       };
       
       // Mock the Setting constructor to track calls
@@ -430,10 +430,10 @@ describe('Configuration UI', () => {
 
     it('should create test connection button', () => {
       // Arrange - create a mock Setting instance with addButton method
-      const mockAddButton = jest.fn().mockReturnValue({});
+      const mockAddButton = vi.fn().mockReturnValue({});
       const settingInstance = {
-        setName: jest.fn().mockReturnThis(),
-        setDesc: jest.fn().mockReturnThis(),
+        setName: vi.fn().mockReturnThis(),
+        setDesc: vi.fn().mockReturnThis(),
         addButton: mockAddButton
       };
       
@@ -451,12 +451,12 @@ describe('Configuration UI', () => {
 
     it('should update settings when values change', async () => {
       // Arrange
-      const onChangeCallback = jest.fn();
-      const mockAddText = jest.fn((callback) => {
+      const onChangeCallback = vi.fn();
+      const mockAddText = vi.fn((callback) => {
         const textComponent = {
-          setValue: jest.fn().mockReturnThis(),
-          setPlaceholder: jest.fn().mockReturnThis(),
-          onChange: jest.fn((handler) => {
+          setValue: vi.fn().mockReturnThis(),
+          setPlaceholder: vi.fn().mockReturnThis(),
+          onChange: vi.fn((handler) => {
             onChangeCallback.mockImplementation(handler);
             return textComponent;
           }),
@@ -467,8 +467,8 @@ describe('Configuration UI', () => {
       });
       
       const settingInstance = {
-        setName: jest.fn().mockReturnThis(),
-        setDesc: jest.fn().mockReturnThis(),
+        setName: vi.fn().mockReturnThis(),
+        setDesc: vi.fn().mockReturnThis(),
         addText: mockAddText
       };
       
@@ -506,7 +506,7 @@ describe('Configuration UI', () => {
       
       // Mock query engine
       const mockQueryEngine = {
-        validateQuery: jest.fn().mockResolvedValue(true)
+        validateQuery: vi.fn().mockResolvedValue(true)
       };
       plugin.queryEngine = mockQueryEngine as any;
       
@@ -525,7 +525,7 @@ describe('Configuration UI', () => {
       plugin.settings.jiraApiToken = 'invalid-token';
       
       const mockQueryEngine = {
-        validateQuery: jest.fn().mockRejectedValue(new Error('401 Unauthorized'))
+        validateQuery: vi.fn().mockRejectedValue(new Error('401 Unauthorized'))
       };
       plugin.queryEngine = mockQueryEngine as any;
       
@@ -544,7 +544,7 @@ describe('Configuration UI', () => {
       plugin.settings.jqlQuery = 'invalid syntax here';
       
       const mockQueryEngine = {
-        validateQuery: jest.fn().mockResolvedValue(false)
+        validateQuery: vi.fn().mockResolvedValue(false)
       };
       plugin.queryEngine = mockQueryEngine as any;
       
@@ -566,7 +566,7 @@ describe('Configuration UI', () => {
         sync_interval_minutes: 10
       };
       
-      plugin.loadData = jest.fn().mockResolvedValue(oldSettings);
+      plugin.loadData = vi.fn().mockResolvedValue(oldSettings);
       
       // Act
       await migrateOldSettings(plugin);
@@ -583,7 +583,7 @@ describe('Configuration UI', () => {
         jiraUrl: 'https://test.atlassian.net'
       };
       
-      plugin.loadData = jest.fn().mockResolvedValue(minimalSettings);
+      plugin.loadData = vi.fn().mockResolvedValue(minimalSettings);
       
       // Act
       await plugin.loadSettings();

@@ -1,10 +1,10 @@
-import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, vi, beforeEach, afterEach } from '@vitest/globals';
 import { AutoSyncScheduler, AutoSyncConfig, SyncStatistics } from '../../src/enhanced-sync/auto-sync-scheduler';
 import { JQLQueryEngine } from '../../src/enhanced-sync/jql-query-engine';
 import { Plugin } from 'obsidian';
 
 // Mock Obsidian Plugin
-jest.mock('obsidian');
+vi.mock('obsidian');
 
 /**
  * Configuration Management Contract Tests
@@ -18,9 +18,9 @@ jest.mock('obsidian');
  */
 describe('Configuration Management Contract Tests', () => {
   let autoSyncScheduler: AutoSyncScheduler;
-  let mockPlugin: jest.Mocked<Plugin>;
-  let mockQueryEngine: jest.Mocked<JQLQueryEngine>;
-  let mockSyncCallback: jest.MockedFunction<any>;
+  let mockPlugin: vi.Mocked<Plugin>;
+  let mockQueryEngine: vi.Mocked<JQLQueryEngine>;
+  let mockSyncCallback: vi.MockedFunction<any>;
   
   const validBaseConfig: AutoSyncConfig = {
     enabled: false,
@@ -31,23 +31,23 @@ describe('Configuration Management Contract Tests', () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Mock Plugin
     mockPlugin = {
-      loadData: jest.fn().mockResolvedValue({}),
-      saveData: jest.fn().mockResolvedValue(undefined),
+      loadData: vi.fn().mockResolvedValue({}),
+      saveData: vi.fn().mockResolvedValue(undefined),
     } as any;
     
     // Mock JQL Query Engine
     mockQueryEngine = {
-      validateQuery: jest.fn(),
-      estimateResultCount: jest.fn(),
-      executeQuery: jest.fn(),
+      validateQuery: vi.fn(),
+      estimateResultCount: vi.fn(),
+      executeQuery: vi.fn(),
     } as any;
     
     // Mock sync callback
-    mockSyncCallback = jest.fn().mockResolvedValue(undefined);
+    mockSyncCallback = vi.fn().mockResolvedValue(undefined);
     
     autoSyncScheduler = new AutoSyncScheduler(
       mockPlugin,
@@ -58,7 +58,7 @@ describe('Configuration Management Contract Tests', () => {
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   describe('Auto-sync Configuration Management (/config/auto-sync)', () => {

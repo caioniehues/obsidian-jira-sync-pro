@@ -10,8 +10,18 @@ export interface NoteCreationResult {
 
 export interface NoteCreationOptions {
   overwriteExisting?: boolean;
-  organizationStrategy?: 'flat' | 'by-project' | 'by-status';
+  organizationStrategy?: 'flat' | 'by-project' | 'by-status' | 'status-based';
   preserveLocalNotes?: boolean;
+  statusMapping?: {
+    active: string[];
+    archived: string[];
+    ignore?: string[];
+  };
+  activeTicketsFolder?: string;
+  archivedTicketsFolder?: string;
+  archiveByYear?: boolean;
+  keepRecentArchive?: boolean;
+  recentArchiveDays?: number;
 }
 
 export class SimpleNoteService {
@@ -29,7 +39,7 @@ export class SimpleNoteService {
   ): Promise<NoteCreationResult> {
     try {
       // Determine file path based on organization strategy
-      const filePath = await this.getFilePath(ticket, options.organizationStrategy || 'by-project');
+      const filePath = await this.getFilePath(ticket, options.organizationStrategy || 'by-project', options);
       
       // Ensure folder exists
       await this.ensureFolderExists(filePath);
@@ -356,7 +366,8 @@ ${commentBody}
    */
   private async getFilePath(
     ticket: JiraIssue,
-    strategy: 'flat' | 'by-project' | 'by-status'
+    strategy: 'flat' | 'by-project' | 'by-status' | 'status-based',
+    options?: NoteCreationOptions
   ): Promise<string> {
     const safeKey = this.sanitizeFileName(ticket.key);
     const baseFolder = normalizePath(this.baseFolder);
@@ -373,9 +384,72 @@ ${commentBody}
         const status = this.sanitizeFileName(ticket.fields.status.name);
         return `${baseFolder}/${status}/${safeKey}.md`;
         
+      case 'status-based':
+        return this.getStatusBasedPath(ticket, baseFolder, options);
+        
       default:
         return `${baseFolder}/${safeKey}.md`;
     }
+  }
+
+  /**
+   * Get file path based on ticket status (active/archived)
+   */
+  private getStatusBasedPath(
+    ticket: JiraIssue,
+    baseFolder: string,
+    options?: NoteCreationOptions
+  ): string {
+    const safeKey = this.sanitizeFileName(ticket.key);
+    const project = this.sanitizeFileName(ticket.fields.project.key);
+    const status = ticket.fields.status?.name || 'Unknown';
+    
+    // Check if status should be ignored
+    if (options?.statusMapping?.ignore?.includes(status)) {
+      return ''; // Skip this ticket
+    }
+    
+    // Determine if ticket is active or archived
+    const isArchived = options?.statusMapping?.archived?.includes(status) || false;
+    
+    if (isArchived) {
+      const archiveFolder = options?.archivedTicketsFolder || 'Archived Tickets';
+      const basePath = `${baseFolder}/${archiveFolder}`;
+      
+      // Check if recently resolved (for _Recent folder)
+      const resolvedDate = ticket.fields.resolutiondate;
+      if (options?.keepRecentArchive && resolvedDate) {
+        const daysSinceResolved = this.daysSinceDate(resolvedDate);
+        const recentDays = options?.recentArchiveDays || 30;
+        
+        if (daysSinceResolved <= recentDays) {
+          return `${basePath}/_Recent/${project}/${safeKey}.md`;
+        }
+      }
+      
+      // Archive by year if enabled
+      if (options?.archiveByYear && resolvedDate) {
+        const year = new Date(resolvedDate).getFullYear();
+        return `${basePath}/${year}/${project}/${safeKey}.md`;
+      }
+      
+      // Default archive location
+      return `${basePath}/${project}/${safeKey}.md`;
+    } else {
+      // Active ticket
+      const activeFolder = options?.activeTicketsFolder || 'Active Tickets';
+      return `${baseFolder}/${activeFolder}/${project}/${safeKey}.md`;
+    }
+  }
+
+  /**
+   * Calculate days since a given date
+   */
+  private daysSinceDate(dateString: string): number {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    return Math.floor(diffMs / (1000 * 60 * 60 * 24));
   }
 
   /**

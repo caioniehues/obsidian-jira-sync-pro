@@ -6,6 +6,15 @@
  */
 
 /**
+ * Status mapping configuration for organizing tickets by status
+ */
+export interface StatusMapping {
+  active: string[];    // Statuses for active folder
+  archived: string[];  // Statuses for archive folder
+  ignore?: string[];   // Statuses to skip syncing
+}
+
+/**
  * Core settings interface for JQL auto-sync functionality
  */
 export interface JQLAutoSyncSettings {
@@ -27,6 +36,16 @@ export interface JQLAutoSyncSettings {
   
   // Storage Settings
   syncFolder: string;
+  
+  // Status-Based Organization Settings
+  enableStatusOrganization?: boolean;
+  activeTicketsFolder?: string;
+  archivedTicketsFolder?: string;
+  archiveByYear?: boolean;
+  keepRecentArchive?: boolean;
+  recentArchiveDays?: number;
+  statusMapping?: StatusMapping;
+  preserveProjectFolders?: boolean;
   
   // Advanced Settings
   enableResume?: boolean;
@@ -183,6 +202,34 @@ export interface FieldMetadata {
 }
 
 /**
+ * Default status mapping for ticket organization
+ */
+export const DEFAULT_STATUS_MAPPING: StatusMapping = {
+  active: [
+    'Open',
+    'In Progress',
+    'In Review',
+    'Ready for Testing',
+    'Blocked',
+    'Waiting',
+    'To Do',
+    'Reopened'
+  ],
+  archived: [
+    'Done',
+    'Closed',
+    'Resolved',
+    'Completed',
+    'Cancelled',
+    'Rejected',
+    'Won\'t Do'
+  ],
+  ignore: [
+    'Deleted'
+  ]
+};
+
+/**
  * Default values for all settings
  */
 export const DEFAULT_JQL_SETTINGS: JQLAutoSyncSettings = {
@@ -194,7 +241,15 @@ export const DEFAULT_JQL_SETTINGS: JQLAutoSyncSettings = {
   syncInterval: 5,
   maxResults: 1000,
   batchSize: 50,
-  syncFolder: 'Areas/Work/Jira Tickets',
+  syncFolder: 'Knowledge/Work',
+  enableStatusOrganization: true,
+  activeTicketsFolder: 'Active Tickets',
+  archivedTicketsFolder: 'Archived Tickets',
+  archiveByYear: true,
+  keepRecentArchive: true,
+  recentArchiveDays: 30,
+  statusMapping: DEFAULT_STATUS_MAPPING,
+  preserveProjectFolders: true,
   enableResume: true,
   organizeByProject: true,
   skipExisting: false,

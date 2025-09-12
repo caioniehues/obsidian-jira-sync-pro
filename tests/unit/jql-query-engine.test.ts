@@ -14,7 +14,7 @@
  * - Integration with JiraClient mock
  */
 
-import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, vi, beforeEach, afterEach } from '@vitest/globals';
 import { JQLQueryEngine, JQLQueryOptions, QueryPhase } from '../../src/enhanced-sync/jql-query-engine';
 import { JiraClient, SearchResponse } from '../../src/jira-bases-adapter/jira-client';
 import { JiraFactory } from '../factories/jira-factory';
@@ -29,23 +29,23 @@ import {
 } from '../utils/test-helpers';
 
 // Mock JiraClient
-jest.mock('../../src/jira-bases-adapter/jira-client');
+vi.mock('../../src/jira-bases-adapter/jira-client');
 
 describe('JQLQueryEngine', () => {
   let engine: JQLQueryEngine;
-  let mockJiraClient: jest.Mocked<JiraClient>;
+  let mockJiraClient: vi.Mocked<JiraClient>;
   let mockTimer: MockTimer;
   let progressCallback: ReturnType<typeof createMockProgressCallback>;
 
   beforeEach(() => {
     // Reset all mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Reset factory counter for consistent test data
     JiraFactory.resetCounter();
     
     // Create mock Jira client
-    mockJiraClient = new JiraClient() as jest.Mocked<JiraClient>;
+    mockJiraClient = new JiraClient() as vi.Mocked<JiraClient>;
     
     // Create progress callback helper
     progressCallback = createMockProgressCallback();
@@ -61,7 +61,7 @@ describe('JQLQueryEngine', () => {
   afterEach(() => {
     // Restore mocks and timers
     mockTimer.uninstall();
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   describe('Query Validation', () => {
@@ -69,7 +69,7 @@ describe('JQLQueryEngine', () => {
       it('should validate syntactically correct JQL', async () => {
         // Arrange
         const validJQL = 'assignee = currentUser() AND status NOT IN (Done, Closed)';
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(
           JiraFactory.createSearchResponse({ issueCount: 0 })
         );
 
@@ -94,7 +94,7 @@ describe('JQLQueryEngine', () => {
           status IN ("In Progress", "Review") AND 
           created >= -30d ORDER BY updated DESC
         `;
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(
           JiraFactory.createSearchResponse({ issueCount: 0 })
         );
 
@@ -115,7 +115,7 @@ describe('JQLQueryEngine', () => {
       it('should validate JQL with functions and operators', async () => {
         // Arrange
         const functionJQL = 'assignee = currentUser() AND duedate < now() AND priority > Low';
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(
           JiraFactory.createSearchResponse({ issueCount: 0 })
         );
 
@@ -132,7 +132,7 @@ describe('JQLQueryEngine', () => {
         // Arrange
         const invalidJQL = 'assignee == currentUser() ANDD status';
         const syntaxError = JiraFactory.createErrorResponse(400, 'Invalid JQL syntax');
-        mockJiraClient.searchIssues = jest.fn().mockRejectedValue(syntaxError);
+        mockJiraClient.searchIssues = vi.fn().mockRejectedValue(syntaxError);
 
         // Act
         const isValid = await engine.validateQuery(invalidJQL);
@@ -151,7 +151,7 @@ describe('JQLQueryEngine', () => {
         // Arrange
         const invalidFieldJQL = 'unknownfield = "value"';
         const fieldError = JiraFactory.createErrorResponse(400, 'Unknown field: unknownfield');
-        mockJiraClient.searchIssues = jest.fn().mockRejectedValue(fieldError);
+        mockJiraClient.searchIssues = vi.fn().mockRejectedValue(fieldError);
 
         // Act
         const isValid = await engine.validateQuery(invalidFieldJQL);
@@ -164,7 +164,7 @@ describe('JQLQueryEngine', () => {
         // Arrange
         const malformedJQL = 'summary ~ "unclosed quote';
         const quoteError = JiraFactory.createErrorResponse(400, 'Malformed string literal');
-        mockJiraClient.searchIssues = jest.fn().mockRejectedValue(quoteError);
+        mockJiraClient.searchIssues = vi.fn().mockRejectedValue(quoteError);
 
         // Act
         const isValid = await engine.validateQuery(malformedJQL);
@@ -216,7 +216,7 @@ describe('JQLQueryEngine', () => {
       it('should handle network errors during validation', async () => {
         // Arrange
         const validJQL = 'project = TEST';
-        mockJiraClient.searchIssues = jest.fn().mockRejectedValue(
+        mockJiraClient.searchIssues = vi.fn().mockRejectedValue(
           new Error('Network request failed')
         );
 
@@ -231,7 +231,7 @@ describe('JQLQueryEngine', () => {
         // Arrange
         const validJQL = 'project = TEST';
         const authError = JiraFactory.createErrorResponse(401);
-        mockJiraClient.searchIssues = jest.fn().mockRejectedValue(authError);
+        mockJiraClient.searchIssues = vi.fn().mockRejectedValue(authError);
 
         // Act
         const isValid = await engine.validateQuery(validJQL);
@@ -252,7 +252,7 @@ describe('JQLQueryEngine', () => {
           total: 2
         });
         
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(mockSearchResponse);
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(mockSearchResponse);
 
         // Act
         const result = await engine.executeQuery({
@@ -297,7 +297,7 @@ describe('JQLQueryEngine', () => {
           total: exactCount
         });
         
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(mockSearchResponse);
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(mockSearchResponse);
 
         // Act
         const result = await engine.executeQuery({
@@ -321,7 +321,7 @@ describe('JQLQueryEngine', () => {
           total: 0
         });
         
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(emptyResponse);
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(emptyResponse);
 
         // Act
         const result = await engine.executeQuery({
@@ -368,7 +368,7 @@ describe('JQLQueryEngine', () => {
         // Arrange
         const jql = 'project = TEST';
         const mockSearchResponse = JiraFactory.createSearchResponse({ issueCount: 1 });
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(mockSearchResponse);
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(mockSearchResponse);
 
         // Act
         const result = await engine.executeQuery({
@@ -397,7 +397,7 @@ describe('JQLQueryEngine', () => {
         const page2 = JiraFactory.createPaginatedSearchResponse(1, batchSize, totalIssues);
         const page3 = JiraFactory.createPaginatedSearchResponse(2, batchSize, totalIssues);
 
-        mockJiraClient.searchIssues = jest.fn()
+        mockJiraClient.searchIssues = vi.fn()
           .mockResolvedValueOnce(page1)
           .mockResolvedValueOnce(page2)
           .mockResolvedValueOnce(page3);
@@ -442,7 +442,7 @@ describe('JQLQueryEngine', () => {
         const page1 = JiraFactory.createPaginatedSearchResponse(0, batchSize, totalAvailable);
         const page2 = JiraFactory.createPaginatedSearchResponse(1, batchSize, totalAvailable);
 
-        mockJiraClient.searchIssues = jest.fn()
+        mockJiraClient.searchIssues = vi.fn()
           .mockResolvedValueOnce(page1)
           .mockResolvedValueOnce(page2);
 
@@ -476,7 +476,7 @@ describe('JQLQueryEngine', () => {
         const page2 = JiraFactory.createPaginatedSearchResponse(1, batchSize, totalIssues);
         const page3 = JiraFactory.createPaginatedSearchResponse(2, batchSize, totalIssues);
 
-        mockJiraClient.searchIssues = jest.fn()
+        mockJiraClient.searchIssues = vi.fn()
           .mockResolvedValueOnce(page1)
           .mockResolvedValueOnce(page2)
           .mockResolvedValueOnce(page3);
@@ -507,7 +507,7 @@ describe('JQLQueryEngine', () => {
         // Adjust the second page to only return 25 issues (the remaining capacity)
         page2Response.issues = page2Response.issues.slice(0, 25);
 
-        mockJiraClient.searchIssues = jest.fn()
+        mockJiraClient.searchIssues = vi.fn()
           .mockResolvedValueOnce(page1)
           .mockResolvedValueOnce(page2Response);
 
@@ -539,7 +539,7 @@ describe('JQLQueryEngine', () => {
           total: 1
         });
         
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(singleIssue);
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(singleIssue);
 
         // Act
         const result = await engine.executeQuery({
@@ -563,7 +563,7 @@ describe('JQLQueryEngine', () => {
           total: 100
         });
         
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(largeResult);
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(largeResult);
 
         // Act
         const result = await engine.executeQuery({
@@ -591,7 +591,7 @@ describe('JQLQueryEngine', () => {
           total: 25
         });
         
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(result);
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(result);
 
         // Act
         const queryResult = await engine.executeQuery({
@@ -615,7 +615,7 @@ describe('JQLQueryEngine', () => {
         // Arrange
         const jql = 'project = TEST';
         const mockResponse = JiraFactory.createSearchResponse({ issueCount: 1 });
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(mockResponse);
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(mockResponse);
 
         // Act
         await engine.executeQuery({
@@ -650,7 +650,7 @@ describe('JQLQueryEngine', () => {
         // Arrange
         const jql = 'project = DEFAULT';
         const mockResponse = JiraFactory.createSearchResponse({ issueCount: 1 });
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(mockResponse);
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(mockResponse);
 
         // Act
         await engine.executeQuery({
@@ -679,7 +679,7 @@ describe('JQLQueryEngine', () => {
         const jql = 'project = CUSTOM';
         const customFields = ['summary', 'status', 'assignee', 'priority'];
         const mockResponse = JiraFactory.createSearchResponse({ issueCount: 1 });
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(mockResponse);
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(mockResponse);
 
         // Act
         await engine.executeQuery({
@@ -707,7 +707,7 @@ describe('JQLQueryEngine', () => {
         const jql = 'project = SINGLE_FIELD';
         const singleField = ['summary'];
         const mockResponse = JiraFactory.createSearchResponse({ issueCount: 1 });
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(mockResponse);
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(mockResponse);
 
         // Act
         await engine.executeQuery({
@@ -739,7 +739,7 @@ describe('JQLQueryEngine', () => {
           'components'
         ];
         const mockResponse = JiraFactory.createSearchResponse({ issueCount: 1 });
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(mockResponse);
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(mockResponse);
 
         // Act
         await engine.executeQuery({
@@ -762,7 +762,7 @@ describe('JQLQueryEngine', () => {
         const jql = 'project = EMPTY_FIELDS';
         const emptyFields: string[] = [];
         const mockResponse = JiraFactory.createSearchResponse({ issueCount: 1 });
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(mockResponse);
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(mockResponse);
 
         // Act
         await engine.executeQuery({
@@ -791,7 +791,7 @@ describe('JQLQueryEngine', () => {
         const page2 = JiraFactory.createPaginatedSearchResponse(1, 50, 150);
         const page3 = JiraFactory.createPaginatedSearchResponse(2, 50, 150);
 
-        mockJiraClient.searchIssues = jest.fn()
+        mockJiraClient.searchIssues = vi.fn()
           .mockResolvedValueOnce(page1)
           .mockResolvedValueOnce(page2)
           .mockResolvedValueOnce(page3);
@@ -827,7 +827,7 @@ describe('JQLQueryEngine', () => {
         const page2 = JiraFactory.createPaginatedSearchResponse(1, batchSize, totalIssues);
         const page3 = JiraFactory.createPaginatedSearchResponse(2, 20, totalIssues); // Last page partial
 
-        mockJiraClient.searchIssues = jest.fn()
+        mockJiraClient.searchIssues = vi.fn()
           .mockResolvedValueOnce(page1)
           .mockResolvedValueOnce(page2)
           .mockResolvedValueOnce(page3);
@@ -860,7 +860,7 @@ describe('JQLQueryEngine', () => {
           total: 10
         });
         
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(mockResponse);
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(mockResponse);
 
         // Act
         await engine.executeQuery({
@@ -886,7 +886,7 @@ describe('JQLQueryEngine', () => {
         const page1 = JiraFactory.createPaginatedSearchResponse(0, 30, 75);
         const page2 = JiraFactory.createPaginatedSearchResponse(1, 30, 75);
 
-        mockJiraClient.searchIssues = jest.fn()
+        mockJiraClient.searchIssues = vi.fn()
           .mockResolvedValueOnce(page1)
           .mockResolvedValueOnce(page2);
 
@@ -915,7 +915,7 @@ describe('JQLQueryEngine', () => {
           total: 5
         });
         
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(mockResponse);
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(mockResponse);
 
         // Act
         await engine.executeQuery({
@@ -940,7 +940,7 @@ describe('JQLQueryEngine', () => {
         const page1 = JiraFactory.createPaginatedSearchResponse(0, 50, 1000);
         const page2 = JiraFactory.createPaginatedSearchResponse(1, 50, 1000);
 
-        mockJiraClient.searchIssues = jest.fn()
+        mockJiraClient.searchIssues = vi.fn()
           .mockResolvedValueOnce(page1)
           .mockResolvedValueOnce(page2);
 
@@ -972,7 +972,7 @@ describe('JQLQueryEngine', () => {
         const page2 = JiraFactory.createPaginatedSearchResponse(1, 40, totalIssues);
         const page3 = JiraFactory.createPaginatedSearchResponse(2, 7, totalIssues); // Final partial page
 
-        mockJiraClient.searchIssues = jest.fn()
+        mockJiraClient.searchIssues = vi.fn()
           .mockResolvedValueOnce(page1)
           .mockResolvedValueOnce(page2)
           .mockResolvedValueOnce(page3);
@@ -1003,7 +1003,7 @@ describe('JQLQueryEngine', () => {
           total: 0
         });
         
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(emptyResponse);
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(emptyResponse);
 
         // Act
         await engine.executeQuery({
@@ -1026,7 +1026,7 @@ describe('JQLQueryEngine', () => {
       it('should handle progress callback errors gracefully', async () => {
         // Arrange
         const jql = 'project = CALLBACK_ERROR';
-        const faultyCallback = jest.fn().mockImplementation(() => {
+        const faultyCallback = vi.fn().mockImplementation(() => {
           throw new Error('Callback error');
         });
         
@@ -1034,7 +1034,7 @@ describe('JQLQueryEngine', () => {
           issueCount: 3,
           total: 3
         });
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(mockResponse);
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(mockResponse);
 
         // Act - Should not throw despite callback error
         const result = await engine.executeQuery({
@@ -1052,7 +1052,7 @@ describe('JQLQueryEngine', () => {
       it('should continue execution after callback throws', async () => {
         // Arrange
         const jql = 'project = CALLBACK_THROWS';
-        const throwingCallback = jest.fn()
+        const throwingCallback = vi.fn()
           .mockImplementationOnce(() => { throw new Error('First error'); })
           .mockImplementationOnce(() => { throw new Error('Second error'); })
           .mockImplementationOnce(() => { /* Success on third call */ });
@@ -1060,7 +1060,7 @@ describe('JQLQueryEngine', () => {
         const page1 = JiraFactory.createPaginatedSearchResponse(0, 25, 50);
         const page2 = JiraFactory.createPaginatedSearchResponse(1, 25, 50);
 
-        mockJiraClient.searchIssues = jest.fn()
+        mockJiraClient.searchIssues = vi.fn()
           .mockResolvedValueOnce(page1)
           .mockResolvedValueOnce(page2);
 
@@ -1084,7 +1084,7 @@ describe('JQLQueryEngine', () => {
           issueCount: 2,
           total: 2
         });
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(mockResponse);
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(mockResponse);
 
         // Act - Should not throw when callback is undefined
         const result = await engine.executeQuery({
@@ -1106,7 +1106,7 @@ describe('JQLQueryEngine', () => {
         // Arrange
         const jql = 'project = NETWORK_ERROR';
         const networkError = new Error('Network request failed');
-        mockJiraClient.searchIssues = jest.fn().mockRejectedValue(networkError);
+        mockJiraClient.searchIssues = vi.fn().mockRejectedValue(networkError);
 
         // Act & Assert
         await expect(engine.executeQuery({
@@ -1128,13 +1128,13 @@ describe('JQLQueryEngine', () => {
           total: 1
         });
 
-        mockJiraClient.searchIssues = jest.fn()
+        mockJiraClient.searchIssues = vi.fn()
           .mockRejectedValueOnce(networkError)
           .mockRejectedValueOnce(networkError)
           .mockResolvedValueOnce(successResponse);
 
         // Use fake timers to control retry delays
-        jest.useFakeTimers();
+        vi.useFakeTimers();
 
         // Act
         const queryPromise = engine.executeQuery({
@@ -1145,8 +1145,8 @@ describe('JQLQueryEngine', () => {
         });
 
         // Fast-forward through retry delays with promise flushing
-        await jest.advanceTimersByTimeAsync(2000); // First retry delay
-        await jest.advanceTimersByTimeAsync(4000); // Second retry delay
+        await vi.advanceTimersByTimeAsync(2000); // First retry delay
+        await vi.advanceTimersByTimeAsync(4000); // Second retry delay
 
         const result = await queryPromise;
 
@@ -1155,17 +1155,17 @@ describe('JQLQueryEngine', () => {
         expect(mockJiraClient.searchIssues).toHaveBeenCalledTimes(3);
 
         // Restore real timers
-        jest.useRealTimers();
+        vi.useRealTimers();
       }, 10000);
 
       it('should fail after maximum retry attempts', async () => {
         // Arrange
         const jql = 'project = MAX_RETRIES';
         const persistentError = new Error('Persistent network error');
-        mockJiraClient.searchIssues = jest.fn().mockRejectedValue(persistentError);
+        mockJiraClient.searchIssues = vi.fn().mockRejectedValue(persistentError);
 
         // Use fake timers
-        jest.useFakeTimers();
+        vi.useFakeTimers();
 
         // Act
         const queryPromise = engine.executeQuery({
@@ -1176,7 +1176,7 @@ describe('JQLQueryEngine', () => {
         });
 
         // Fast-forward through all retry delays
-        await jest.advanceTimersByTimeAsync(10000); // Advance enough for all retries
+        await vi.advanceTimersByTimeAsync(10000); // Advance enough for all retries
 
         // Assert
         await expect(queryPromise).rejects.toThrow('Persistent network error');
@@ -1185,7 +1185,7 @@ describe('JQLQueryEngine', () => {
         expect(mockJiraClient.searchIssues).toHaveBeenCalledTimes(3);
 
         // Restore real timers
-        jest.useRealTimers();
+        vi.useRealTimers();
       }, 10000);
     });
 
@@ -1194,7 +1194,7 @@ describe('JQLQueryEngine', () => {
         // Arrange
         const jql = 'project = BAD_REQUEST';
         const badRequestError = JiraFactory.createErrorResponse(400, 'Invalid JQL syntax');
-        mockJiraClient.searchIssues = jest.fn().mockRejectedValue(badRequestError);
+        mockJiraClient.searchIssues = vi.fn().mockRejectedValue(badRequestError);
 
         // Act & Assert
         await expect(engine.executeQuery({
@@ -1215,7 +1215,7 @@ describe('JQLQueryEngine', () => {
         // Arrange
         const jql = 'project = AUTH_ERROR';
         const authError = JiraFactory.createErrorResponse(401, 'Authentication required');
-        mockJiraClient.searchIssues = jest.fn().mockRejectedValue(authError);
+        mockJiraClient.searchIssues = vi.fn().mockRejectedValue(authError);
 
         // Act & Assert
         await expect(engine.executeQuery({
@@ -1235,7 +1235,7 @@ describe('JQLQueryEngine', () => {
         // Arrange
         const jql = 'project = FORBIDDEN';
         const permissionError = JiraFactory.createErrorResponse(403, 'Insufficient permissions');
-        mockJiraClient.searchIssues = jest.fn().mockRejectedValue(permissionError);
+        mockJiraClient.searchIssues = vi.fn().mockRejectedValue(permissionError);
 
         // Act & Assert
         await expect(engine.executeQuery({
@@ -1255,7 +1255,7 @@ describe('JQLQueryEngine', () => {
         // Arrange
         const jql = 'project = NOT_FOUND';
         const notFoundError = JiraFactory.createErrorResponse(404, 'Resource not found');
-        mockJiraClient.searchIssues = jest.fn().mockRejectedValue(notFoundError);
+        mockJiraClient.searchIssues = vi.fn().mockRejectedValue(notFoundError);
 
         // Act & Assert
         await expect(engine.executeQuery({
@@ -1280,7 +1280,7 @@ describe('JQLQueryEngine', () => {
           total: 1
         });
 
-        mockJiraClient.searchIssues = jest.fn()
+        mockJiraClient.searchIssues = vi.fn()
           .mockRejectedValueOnce(serverError)
           .mockResolvedValueOnce(successResponse);
 
@@ -1306,7 +1306,7 @@ describe('JQLQueryEngine', () => {
           total: 1
         });
 
-        mockJiraClient.searchIssues = jest.fn()
+        mockJiraClient.searchIssues = vi.fn()
           .mockRejectedValueOnce(gatewayError)
           .mockResolvedValueOnce(successResponse);
 
@@ -1334,7 +1334,7 @@ describe('JQLQueryEngine', () => {
           total: 2
         });
 
-        mockJiraClient.searchIssues = jest.fn()
+        mockJiraClient.searchIssues = vi.fn()
           .mockRejectedValueOnce(rateLimitError)
           .mockResolvedValueOnce(successResponse);
 
@@ -1364,7 +1364,7 @@ describe('JQLQueryEngine', () => {
           total: 1
         });
 
-        mockJiraClient.searchIssues = jest.fn()
+        mockJiraClient.searchIssues = vi.fn()
           .mockRejectedValueOnce(rateLimitError)
           .mockResolvedValueOnce(successResponse);
 
@@ -1396,7 +1396,7 @@ describe('JQLQueryEngine', () => {
           total: 1
         });
 
-        mockJiraClient.searchIssues = jest.fn()
+        mockJiraClient.searchIssues = vi.fn()
           .mockRejectedValueOnce(rateLimitError1)
           .mockRejectedValueOnce(rateLimitError2)
           .mockResolvedValueOnce(successResponse);
@@ -1425,7 +1425,7 @@ describe('JQLQueryEngine', () => {
           total: 1
         });
 
-        mockJiraClient.searchIssues = jest.fn()
+        mockJiraClient.searchIssues = vi.fn()
           .mockRejectedValueOnce(serverError)
           .mockRejectedValueOnce(serverError)
           .mockResolvedValueOnce(successResponse);
@@ -1454,7 +1454,7 @@ describe('JQLQueryEngine', () => {
         const serverError = JiraFactory.createErrorResponse(500, 'Server error');
 
         // Mock to always fail to test delay capping
-        mockJiraClient.searchIssues = jest.fn().mockRejectedValue(serverError);
+        mockJiraClient.searchIssues = vi.fn().mockRejectedValue(serverError);
 
         // Act & Assert
         const startTime = mockTimer.getCurrentTime();
@@ -1484,7 +1484,7 @@ describe('JQLQueryEngine', () => {
           total: 1
         });
 
-        mockJiraClient.searchIssues = jest.fn()
+        mockJiraClient.searchIssues = vi.fn()
           .mockRejectedValueOnce(serverError)
           .mockResolvedValueOnce(successResponse);
 
@@ -1519,7 +1519,7 @@ describe('JQLQueryEngine', () => {
         // Track retry state for page 2
         let page2HasErrored = false;
         
-        mockJiraClient.searchIssues = jest.fn()
+        mockJiraClient.searchIssues = vi.fn()
           .mockImplementation((params: any) => {
             console.log('[TEST] searchIssues called with:', JSON.stringify(params, null, 2));
             console.log('[TEST] Available tokens:', {
@@ -1579,7 +1579,7 @@ describe('JQLQueryEngine', () => {
         const page2Error = JiraFactory.createErrorResponse(500, 'Server error');
         const page2Success = JiraFactory.createPaginatedSearchResponse(1, 35, 75); // Last page with remaining issues
 
-        mockJiraClient.searchIssues = jest.fn()
+        mockJiraClient.searchIssues = vi.fn()
           .mockResolvedValueOnce(page1Success)      // Page 1: Success
           .mockRejectedValueOnce(page2Error)        // Page 2: Error  
           .mockResolvedValueOnce(page2Success);     // Page 2: Retry success
@@ -1608,7 +1608,7 @@ describe('JQLQueryEngine', () => {
         const abortController = new AbortController();
         
         // Mock to simulate delay before checking abort
-        mockJiraClient.searchIssues = jest.fn().mockImplementation(async () => {
+        mockJiraClient.searchIssues = vi.fn().mockImplementation(async () => {
           // Simulate some processing time
           await wait(50);
           throw new Error('Request aborted');
@@ -1636,7 +1636,7 @@ describe('JQLQueryEngine', () => {
         
         const page1 = JiraFactory.createPaginatedSearchResponse(0, 50, 150);
         
-        mockJiraClient.searchIssues = jest.fn()
+        mockJiraClient.searchIssues = vi.fn()
           .mockResolvedValueOnce(page1)
           .mockImplementation(async () => {
             // Should not reach here due to abort
@@ -1688,7 +1688,7 @@ describe('JQLQueryEngine', () => {
           total: 3
         });
         
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(mockResponse);
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(mockResponse);
 
         // Act - Don't abort the signal
         const result = await engine.executeQuery({
@@ -1711,7 +1711,7 @@ describe('JQLQueryEngine', () => {
         const abortController = new AbortController();
         const serverError = JiraFactory.createErrorResponse(500, 'Server error');
         
-        mockJiraClient.searchIssues = jest.fn().mockRejectedValue(serverError);
+        mockJiraClient.searchIssues = vi.fn().mockRejectedValue(serverError);
 
         // Act
         const queryPromise = engine.executeQuery({
@@ -1736,7 +1736,7 @@ describe('JQLQueryEngine', () => {
         const rateLimitError = JiraFactory.createErrorResponse(429, 'Rate limited');
         
         let attemptCount = 0;
-        mockJiraClient.searchIssues = jest.fn().mockImplementation(() => {
+        mockJiraClient.searchIssues = vi.fn().mockImplementation(() => {
           attemptCount++;
           if (attemptCount === 1) {
             // Abort after first attempt, before retry
@@ -1768,7 +1768,7 @@ describe('JQLQueryEngine', () => {
           total: 1
         });
         
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(mockResponse);
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(mockResponse);
 
         // Act
         const result = await engine.executeQuery({
@@ -1797,7 +1797,7 @@ describe('JQLQueryEngine', () => {
           issues: [scenarioIssue]
         };
         
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(mockResponse);
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(mockResponse);
 
         // Act
         const result = await engine.executeQuery({
@@ -1824,7 +1824,7 @@ describe('JQLQueryEngine', () => {
           issues: [minimalIssue]
         };
         
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(mockResponse);
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(mockResponse);
 
         // Act
         const result = await engine.executeQuery({
@@ -1850,7 +1850,7 @@ describe('JQLQueryEngine', () => {
           issues: [complexIssue]
         };
         
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(mockResponse);
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(mockResponse);
 
         // Act
         const result = await engine.executeQuery({
@@ -1896,7 +1896,7 @@ describe('JQLQueryEngine', () => {
           isLast: true
         };
 
-        mockJiraClient.searchIssues = jest.fn()
+        mockJiraClient.searchIssues = vi.fn()
           .mockResolvedValueOnce(page1)
           .mockResolvedValueOnce(page2);
 
@@ -1931,7 +1931,7 @@ describe('JQLQueryEngine', () => {
           JiraFactory.createIssue({ key: 'ORDER-4' })
         ];
         
-        mockJiraClient.searchIssues = jest.fn()
+        mockJiraClient.searchIssues = vi.fn()
           .mockResolvedValueOnce({
             startAt: 0,
             maxResults: 2,
@@ -1969,7 +1969,7 @@ describe('JQLQueryEngine', () => {
         const page1 = JiraFactory.createPaginatedSearchResponse(0, 50, totalAvailable);
         const page2 = JiraFactory.createPaginatedSearchResponse(1, 25, totalAvailable); // Only 25 to reach maxResults
 
-        mockJiraClient.searchIssues = jest.fn()
+        mockJiraClient.searchIssues = vi.fn()
           .mockResolvedValueOnce(page1)
           .mockResolvedValueOnce(page2);
 
@@ -1997,7 +1997,7 @@ describe('JQLQueryEngine', () => {
           total: totalIssues
         });
         
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(response);
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(response);
 
         // Act
         const result = await engine.executeQuery({
@@ -2020,7 +2020,7 @@ describe('JQLQueryEngine', () => {
         const page1 = JiraFactory.createPaginatedSearchResponse(0, 50, exactCount);
         const page2 = JiraFactory.createPaginatedSearchResponse(1, 50, exactCount);
 
-        mockJiraClient.searchIssues = jest.fn()
+        mockJiraClient.searchIssues = vi.fn()
           .mockResolvedValueOnce(page1)
           .mockResolvedValueOnce(page2);
 
@@ -2046,7 +2046,7 @@ describe('JQLQueryEngine', () => {
         const partialBatch = JiraFactory.createPaginatedSearchResponse(0, 45, totalAvailable);
         partialBatch.issues = partialBatch.issues.slice(0, 45); // Ensure exact count
 
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(partialBatch);
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(partialBatch);
 
         // Act
         const result = await engine.executeQuery({
@@ -2093,7 +2093,7 @@ describe('JQLQueryEngine', () => {
           issueCount: maxResults,
           total: maxResults
         });
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(response);
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(response);
 
         // Act
         const result = await engine.executeQuery({
@@ -2121,7 +2121,7 @@ describe('JQLQueryEngine', () => {
         const batch2 = { ...JiraFactory.createPaginatedSearchResponse(1, 1, totalIssues) };
         const batch3 = { ...JiraFactory.createPaginatedSearchResponse(2, 1, totalIssues) };
 
-        mockJiraClient.searchIssues = jest.fn()
+        mockJiraClient.searchIssues = vi.fn()
           .mockResolvedValueOnce(batch1)
           .mockResolvedValueOnce(batch2)
           .mockResolvedValueOnce(batch3);
@@ -2158,7 +2158,7 @@ describe('JQLQueryEngine', () => {
           }]
         };
         
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(malformedResponse);
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(malformedResponse);
 
         // Act
         const result = await engine.executeQuery({
@@ -2182,7 +2182,7 @@ describe('JQLQueryEngine', () => {
           issues: JiraFactory.createIssues(5) // But only returns 5
         };
         
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(responseWithWrongTotal);
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(responseWithWrongTotal);
 
         // Act
         const result = await engine.executeQuery({
@@ -2206,7 +2206,7 @@ describe('JQLQueryEngine', () => {
           issues: [] // But returns empty array
         };
         
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(emptyWithTotal);
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(emptyWithTotal);
 
         // Act
         const result = await engine.executeQuery({
@@ -2228,7 +2228,7 @@ describe('JQLQueryEngine', () => {
         const timeoutError = new Error('Connection timeout');
         timeoutError.name = 'TimeoutError';
         
-        mockJiraClient.searchIssues = jest.fn().mockRejectedValue(timeoutError);
+        mockJiraClient.searchIssues = vi.fn().mockRejectedValue(timeoutError);
 
         // Act & Assert
         await expect(engine.executeQuery({
@@ -2245,7 +2245,7 @@ describe('JQLQueryEngine', () => {
         const dnsError = new Error('DNS resolution failed');
         dnsError.name = 'DNSError';
         
-        mockJiraClient.searchIssues = jest.fn().mockRejectedValue(dnsError);
+        mockJiraClient.searchIssues = vi.fn().mockRejectedValue(dnsError);
 
         // Act & Assert
         await expect(engine.executeQuery({
@@ -2262,7 +2262,7 @@ describe('JQLQueryEngine', () => {
         const sslError = new Error('SSL certificate error');
         sslError.name = 'SSLError';
         
-        mockJiraClient.searchIssues = jest.fn().mockRejectedValue(sslError);
+        mockJiraClient.searchIssues = vi.fn().mockRejectedValue(sslError);
 
         // Act & Assert
         await expect(engine.executeQuery({
@@ -2288,7 +2288,7 @@ describe('JQLQueryEngine', () => {
           JiraFactory.createPaginatedSearchResponse(index, batchSize, totalIssues)
         );
         
-        mockJiraClient.searchIssues = jest.fn();
+        mockJiraClient.searchIssues = vi.fn();
         pages.forEach(page => {
           mockJiraClient.searchIssues.mockResolvedValueOnce(page);
         });
@@ -2320,7 +2320,7 @@ describe('JQLQueryEngine', () => {
           total: 1
         });
         
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(mockResponse);
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(mockResponse);
 
         // Act - Fire multiple queries simultaneously
         const queries = Array.from({ length: 10 }, (_, index) =>
@@ -2357,7 +2357,7 @@ describe('JQLQueryEngine', () => {
           issueCount: 10,
           total: 10
         });
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(mockResponse);
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(mockResponse);
 
         // Act
         await engine.executeQuery({
@@ -2393,7 +2393,7 @@ describe('JQLQueryEngine', () => {
           errors: { field: 'Invalid field' }
         });
         
-        mockJiraClient.searchIssues = jest.fn().mockRejectedValue(customError);
+        mockJiraClient.searchIssues = vi.fn().mockRejectedValue(customError);
 
         // Act & Assert
         await expect(engine.executeQuery({
@@ -2414,7 +2414,7 @@ describe('JQLQueryEngine', () => {
         const page3 = JiraFactory.createPaginatedSearchResponse(2, 15, totalIssues); // Final partial page
 
         // Create a tracking mock to log what's being called
-        mockJiraClient.searchIssues = jest.fn()
+        mockJiraClient.searchIssues = vi.fn()
           .mockImplementation((params) => {
             console.log('Mock called with params:', params);
             if (params.nextPageToken === undefined) {
@@ -2462,7 +2462,7 @@ describe('JQLQueryEngine', () => {
           nextPageToken: undefined // No more pages
         };
         
-        mockJiraClient.searchIssues = jest.fn().mockResolvedValue(mixedResponse);
+        mockJiraClient.searchIssues = vi.fn().mockResolvedValue(mixedResponse);
 
         // Act
         const result = await engine.executeQuery({
@@ -2505,7 +2505,7 @@ describe('JQLQueryEngine', () => {
             issues: [scenarioIssue]
           };
           
-          mockJiraClient.searchIssues = jest.fn().mockResolvedValue(response);
+          mockJiraClient.searchIssues = vi.fn().mockResolvedValue(response);
 
           // Act
           const result = await engine.executeQuery({
@@ -2529,7 +2529,7 @@ describe('JQLQueryEngine', () => {
           const jql = `project = ERROR_${code}`;
           const errorResponse = JiraFactory.createErrorResponse(code);
           
-          mockJiraClient.searchIssues = jest.fn().mockRejectedValue(errorResponse);
+          mockJiraClient.searchIssues = vi.fn().mockRejectedValue(errorResponse);
 
           // Act & Assert
           await expect(engine.executeQuery({
@@ -2558,7 +2558,7 @@ describe('JQLQueryEngine', () => {
         const page2 = JiraFactory.createPaginatedSearchResponse(1, batchSize, 200);
         const page3 = JiraFactory.createPaginatedSearchResponse(2, 30, 200); // Final partial page
 
-        mockJiraClient.searchIssues = jest.fn()
+        mockJiraClient.searchIssues = vi.fn()
           .mockResolvedValueOnce(page1)
           .mockResolvedValueOnce(page2)
           .mockResolvedValueOnce(page3);
@@ -2602,7 +2602,7 @@ describe('JQLQueryEngine', () => {
         const page2Recovery = JiraFactory.createPaginatedSearchResponse(1, 50, 125);
         const page3Success = JiraFactory.createPaginatedSearchResponse(2, 25, 125);
 
-        mockJiraClient.searchIssues = jest.fn()
+        mockJiraClient.searchIssues = vi.fn()
           .mockResolvedValueOnce(page1Success)     // Page 1: Success
           .mockRejectedValueOnce(page2Failure)     // Page 2: Failure
           .mockResolvedValueOnce(page2Recovery)    // Page 2: Recovery
@@ -2636,7 +2636,7 @@ describe('JQLQueryEngine', () => {
         const executionResult = JiraFactory.createSearchResponse({ issueCount: 5 });
         
         // First validate, then execute
-        mockJiraClient.searchIssues = jest.fn()
+        mockJiraClient.searchIssues = vi.fn()
           .mockResolvedValueOnce(validationResult)  // Validation call
           .mockResolvedValueOnce(executionResult);  // Execution call
 

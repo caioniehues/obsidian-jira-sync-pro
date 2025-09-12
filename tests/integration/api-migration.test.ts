@@ -25,7 +25,7 @@
  * 6. Test migration fallback scenarios
  */
 
-import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, vi, beforeEach, afterEach } from '@vitest/globals';
 import {
   createTestSuite,
   waitFor,
@@ -148,7 +148,7 @@ describe('Integration: API Migration Compatibility (Scenario 5)', () => {
     mockPlugin = new Plugin(mockApp, { id: 'jira-sync-pro', name: 'Jira Sync Pro' });
 
     // Mock requestUrl to capture and log all API calls
-    (requestUrl as jest.Mock).mockImplementation(async (request: RequestUrlParam): Promise<RequestUrlResponse> => {
+    (requestUrl as vi.Mock).mockImplementation(async (request: RequestUrlParam): Promise<RequestUrlResponse> => {
       // Log the API call for verification
       const url = new URL(request.url);
       apiCallLog.push({
@@ -204,7 +204,7 @@ describe('Integration: API Migration Compatibility (Scenario 5)', () => {
     jiraClient.configure(migrationTestConfig);
 
     // Clear all mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   afterEach(() => {
@@ -214,7 +214,7 @@ describe('Integration: API Migration Compatibility (Scenario 5)', () => {
     testSuite.afterEach();
     
     // Reset the mock
-    (requestUrl as jest.Mock).mockReset();
+    (requestUrl as vi.Mock).mockReset();
   });
 
   /**
@@ -547,7 +547,7 @@ describe('Integration: API Migration Compatibility (Scenario 5)', () => {
 
     it('should handle rate limiting errors gracefully', async () => {
       // Mock rate limit exceeded response
-      (global as any).requestUrl = jest.fn().mockResolvedValue({
+      (global as any).requestUrl = vi.fn().mockResolvedValue({
         status: 429,
         headers: {
           'Retry-After': '60',
@@ -621,7 +621,7 @@ describe('Integration: API Migration Compatibility (Scenario 5)', () => {
   describe('Migration Fallback Scenarios', () => {
     it('should handle API endpoint not available fallback', async () => {
       // Mock 404 response for new endpoint (not yet deployed)
-      (global as any).requestUrl = jest.fn().mockImplementation(async (request: RequestUrlParam) => {
+      (global as any).requestUrl = vi.fn().mockImplementation(async (request: RequestUrlParam) => {
         if (request.url.includes('/search/jql')) {
           return {
             status: 404,

@@ -10,7 +10,7 @@
  * - Status reporting and error handling
  */
 
-import { jest, describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { jest, describe, it, expect, beforeEach, afterEach } from '@vitest/globals';
 import { AutoSyncScheduler, AutoSyncConfig, AutoSyncStatus, AutoSyncResult } from '../../src/sync/auto-sync-scheduler';
 import { JiraClient } from '../../src/jira-bases-adapter/jira-client';
 import { JQLQueryEngine, JQLQueryResult } from '../../src/enhanced-sync/jql-query-engine';
@@ -22,36 +22,36 @@ import { setupFakeTimersForTest, cleanupTimersAfterTest, advanceTimersAndFlush }
 // ============================================================================
 
 // Mock dependencies
-jest.mock('../../src/jira-bases-adapter/jira-client');
-jest.mock('../../src/enhanced-sync/jql-query-engine');
+vi.mock('../../src/jira-bases-adapter/jira-client');
+vi.mock('../../src/enhanced-sync/jql-query-engine');
 
 describe('AutoSyncScheduler', () => {
   let scheduler: AutoSyncScheduler;
-  let mockJiraClient: jest.Mocked<JiraClient>;
-  let mockQueryEngine: jest.Mocked<JQLQueryEngine>;
+  let mockJiraClient: vi.Mocked<JiraClient>;
+  let mockQueryEngine: vi.Mocked<JQLQueryEngine>;
   let testConfig: AutoSyncConfig;
   
   // Callback spies
-  let progressCallback: jest.Mock;
-  let completionCallback: jest.Mock;
+  let progressCallback: vi.Mock;
+  let completionCallback: vi.Mock;
   
   beforeEach(() => {
     // Setup timers using our utility
     setupFakeTimersForTest();
     
     // Reset all mocks
-    jest.clearAllMocks();
-    jest.clearAllTimers();
+    vi.clearAllMocks();
+    vi.clearAllTimers();
     
     // Create mock instances
-    mockJiraClient = new JiraClient() as jest.Mocked<JiraClient>;
+    mockJiraClient = new JiraClient() as vi.Mocked<JiraClient>;
     
     // Mock the JQLQueryEngine constructor to return our mock
-    (JQLQueryEngine as jest.MockedClass<typeof JQLQueryEngine>).mockImplementation(() => mockQueryEngine);
+    (JQLQueryEngine as vi.MockedClass<typeof JQLQueryEngine>).mockImplementation(() => mockQueryEngine);
     
     mockQueryEngine = {
-      executeQuery: jest.fn(),
-      validateQuery: jest.fn()
+      executeQuery: vi.fn(),
+      validateQuery: vi.fn()
     } as any;
     
     // Create test configuration
@@ -72,8 +72,8 @@ describe('AutoSyncScheduler', () => {
     scheduler = new AutoSyncScheduler(mockJiraClient, testConfig);
     
     // Set up callback spies
-    progressCallback = jest.fn();
-    completionCallback = jest.fn();
+    progressCallback = vi.fn();
+    completionCallback = vi.fn();
     scheduler.setProgressCallback(progressCallback);
     scheduler.setCompletionCallback(completionCallback);
     

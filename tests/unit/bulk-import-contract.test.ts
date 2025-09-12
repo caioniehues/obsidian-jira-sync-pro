@@ -1,4 +1,4 @@
-import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, vi, beforeEach, afterEach } from '@vitest/globals';
 import { requestUrl, RequestUrlResponse } from 'obsidian';
 import { 
   wait, 
@@ -12,7 +12,7 @@ import {
 } from '../utils/test-helpers';
 
 // Mock Obsidian's requestUrl
-jest.mock('obsidian');
+vi.mock('obsidian');
 
 /**
  * Bulk Import Contract Tests
@@ -122,15 +122,15 @@ class BulkImportManager {
 
 describe('Bulk Import Contract Tests', () => {
   let bulkImportManager: BulkImportManager;
-  let mockRequestUrl: jest.MockedFunction<typeof requestUrl>;
+  let mockRequestUrl: vi.MockedFunction<typeof requestUrl>;
   let mockTimer: MockTimer;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     bulkImportManager = new BulkImportManager();
     
     // Setup requestUrl mock with default success response
-    mockRequestUrl = requestUrl as jest.MockedFunction<typeof requestUrl>;
+    mockRequestUrl = requestUrl as vi.MockedFunction<typeof requestUrl>;
     mockRequestUrl.mockResolvedValue({
       status: 200,
       headers: { 'content-type': 'application/json' },
@@ -146,7 +146,7 @@ describe('Bulk Import Contract Tests', () => {
 
   afterEach(() => {
     mockTimer.uninstall();
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   describe('Bulk Import Start Operation Contract', () => {

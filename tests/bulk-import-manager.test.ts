@@ -1,63 +1,63 @@
-import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, vi, beforeEach, afterEach } from '@vitest/globals';
 import { BulkImportManager } from '../src/enhanced-sync/bulk-import-manager';
 import { JQLQueryEngine } from '../src/enhanced-sync/jql-query-engine';
 import { Plugin, Notice, Vault } from 'obsidian';
 
 // Mock Obsidian
-jest.mock('obsidian', () => ({
-  Plugin: jest.fn(),
-  Notice: jest.fn(),
-  Vault: jest.fn(),
-  normalizePath: jest.fn((path: string) => path)
+vi.mock('obsidian', () => ({
+  Plugin: vi.fn(),
+  Notice: vi.fn(),
+  Vault: vi.fn(),
+  normalizePath: vi.fn((path: string) => path)
 }));
 
 // Mock JQLQueryEngine
-jest.mock('../src/enhanced-sync/jql-query-engine');
+vi.mock('../src/enhanced-sync/jql-query-engine');
 
 describe('BulkImportManager', () => {
   let manager: BulkImportManager;
-  let mockPlugin: jest.Mocked<Plugin>;
-  let mockQueryEngine: jest.Mocked<JQLQueryEngine>;
-  let mockVault: jest.Mocked<Vault>;
-  let progressCallback: jest.Mock;
-  let errorCallback: jest.Mock;
+  let mockPlugin: vi.Mocked<Plugin>;
+  let mockQueryEngine: vi.Mocked<JQLQueryEngine>;
+  let mockVault: vi.Mocked<Vault>;
+  let progressCallback: vi.Mock;
+  let errorCallback: vi.Mock;
 
   beforeEach(() => {
     // Reset mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Create mock vault
     mockVault = {
       adapter: {
-        exists: jest.fn().mockResolvedValue(false),
-        list: jest.fn().mockResolvedValue({ files: [], folders: [] })
+        exists: vi.fn().mockResolvedValue(false),
+        list: vi.fn().mockResolvedValue({ files: [], folders: [] })
       },
-      create: jest.fn().mockResolvedValue(undefined),
-      modify: jest.fn().mockResolvedValue(undefined),
-      createFolder: jest.fn().mockResolvedValue(undefined),
-      getAbstractFileByPath: jest.fn().mockReturnValue(null)
+      create: vi.fn().mockResolvedValue(undefined),
+      modify: vi.fn().mockResolvedValue(undefined),
+      createFolder: vi.fn().mockResolvedValue(undefined),
+      getAbstractFileByPath: vi.fn().mockReturnValue(null)
     } as any;
     
     // Create mock plugin
     mockPlugin = {
       app: { vault: mockVault },
-      loadData: jest.fn().mockResolvedValue({}),
-      saveData: jest.fn().mockResolvedValue(undefined)
+      loadData: vi.fn().mockResolvedValue({}),
+      saveData: vi.fn().mockResolvedValue(undefined)
     } as any;
     
     // Create mock query engine
-    mockQueryEngine = new JQLQueryEngine(null as any) as jest.Mocked<JQLQueryEngine>;
+    mockQueryEngine = new JQLQueryEngine(null as any) as vi.Mocked<JQLQueryEngine>;
     
     // Create callbacks
-    progressCallback = jest.fn();
-    errorCallback = jest.fn();
+    progressCallback = vi.fn();
+    errorCallback = vi.fn();
     
     // Initialize manager
     manager = new BulkImportManager(mockPlugin, mockQueryEngine, 'Jira Issues');
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   describe('Bulk Import Execution', () => {
@@ -73,7 +73,7 @@ describe('BulkImportManager', () => {
         }
       }));
 
-      mockQueryEngine.executeQuery = jest.fn().mockResolvedValue({
+      mockQueryEngine.executeQuery = vi.fn().mockResolvedValue({
         issues: mockTickets,
         total: 60,
         truncated: false
@@ -97,7 +97,7 @@ describe('BulkImportManager', () => {
 
     it('should handle empty results gracefully', async () => {
       // Arrange
-      mockQueryEngine.executeQuery = jest.fn().mockResolvedValue({
+      mockQueryEngine.executeQuery = vi.fn().mockResolvedValue({
         issues: [],
         total: 0,
         truncated: false
@@ -123,7 +123,7 @@ describe('BulkImportManager', () => {
         fields: { summary: `Test ${i + 1}` }
       }));
 
-      mockQueryEngine.executeQuery = jest.fn().mockResolvedValue({
+      mockQueryEngine.executeQuery = vi.fn().mockResolvedValue({
         issues: mockTickets,
         total: 5
       });
@@ -159,7 +159,7 @@ describe('BulkImportManager', () => {
         fields: { summary: `Test ${i + 1}` }
       }));
 
-      mockQueryEngine.executeQuery = jest.fn().mockResolvedValue({
+      mockQueryEngine.executeQuery = vi.fn().mockResolvedValue({
         issues: mockTickets,
         total: 100
       });
@@ -192,7 +192,7 @@ describe('BulkImportManager', () => {
         fields: { summary: `Test ${i + 1}` }
       }));
 
-      mockQueryEngine.executeQuery = jest.fn().mockResolvedValue({
+      mockQueryEngine.executeQuery = vi.fn().mockResolvedValue({
         issues: mockTickets,
         total: 50
       });
@@ -217,7 +217,7 @@ describe('BulkImportManager', () => {
         fields: { summary: `Test ${i + 1}` }
       }));
 
-      mockQueryEngine.executeQuery = jest.fn().mockResolvedValue({
+      mockQueryEngine.executeQuery = vi.fn().mockResolvedValue({
         issues: mockTickets,
         total: 50
       });
@@ -257,7 +257,7 @@ describe('BulkImportManager', () => {
         fields: { summary: `Test ${i + 1}` }
       }));
 
-      mockQueryEngine.executeQuery = jest.fn().mockResolvedValue({
+      mockQueryEngine.executeQuery = vi.fn().mockResolvedValue({
         issues: mockTickets.slice(25), // Resume from ticket 26
         total: 50
       });
@@ -281,7 +281,7 @@ describe('BulkImportManager', () => {
         fields: { summary: `Test ${i + 1}` }
       }));
 
-      mockQueryEngine.executeQuery = jest.fn().mockResolvedValue({
+      mockQueryEngine.executeQuery = vi.fn().mockResolvedValue({
         issues: mockTickets,
         total: 10
       });
@@ -313,7 +313,7 @@ describe('BulkImportManager', () => {
         fields: { summary: `Updated ${i + 1}` }
       }));
 
-      mockQueryEngine.executeQuery = jest.fn().mockResolvedValue({
+      mockQueryEngine.executeQuery = vi.fn().mockResolvedValue({
         issues: mockTickets,
         total: 5
       });
@@ -343,13 +343,13 @@ describe('BulkImportManager', () => {
         fields: { summary: `Test ${i + 1}` }
       }));
 
-      mockQueryEngine.executeQuery = jest.fn().mockResolvedValue({
+      mockQueryEngine.executeQuery = vi.fn().mockResolvedValue({
         issues: mockTickets,
         total: 75
       });
 
       const progressStates: any[] = [];
-      const detailedProgress = jest.fn((current, total, phase, details) => {
+      const detailedProgress = vi.fn((current, total, phase, details) => {
         progressStates.push({ current, total, phase, details });
       });
 
@@ -392,7 +392,7 @@ describe('BulkImportManager', () => {
         fields: { summary: `Test ${i + 1}` }
       }));
 
-      mockQueryEngine.executeQuery = jest.fn().mockResolvedValue({
+      mockQueryEngine.executeQuery = vi.fn().mockResolvedValue({
         issues: mockTickets,
         total: 100
       });
@@ -419,7 +419,7 @@ describe('BulkImportManager', () => {
         { key: 'TEST-4', fields: { summary: 'Valid 2' } }
       ];
 
-      mockQueryEngine.executeQuery = jest.fn().mockResolvedValue({
+      mockQueryEngine.executeQuery = vi.fn().mockResolvedValue({
         issues: mockTickets,
         total: 4
       });
@@ -469,7 +469,7 @@ describe('BulkImportManager', () => {
       // Arrange
       mockVault.adapter.exists.mockResolvedValue(false);
       const mockTickets = [{ key: 'TEST-1', fields: { summary: 'Test' } }];
-      mockQueryEngine.executeQuery = jest.fn().mockResolvedValue({
+      mockQueryEngine.executeQuery = vi.fn().mockResolvedValue({
         issues: mockTickets,
         total: 1
       });
@@ -488,7 +488,7 @@ describe('BulkImportManager', () => {
         { key: 'PROJ2-1', fields: { summary: 'Test 2', project: { key: 'PROJ2' } } }
       ];
 
-      mockQueryEngine.executeQuery = jest.fn().mockResolvedValue({
+      mockQueryEngine.executeQuery = vi.fn().mockResolvedValue({
         issues: mockTickets,
         total: 2
       });

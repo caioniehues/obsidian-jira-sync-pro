@@ -17,7 +17,7 @@
  * - Error state management and user notifications
  */
 
-import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, vi, beforeEach, afterEach } from '@vitest/globals';
 import { JiraClient, JiraClientConfig } from '../../src/jira-bases-adapter/jira-client';
 import { BulkImportManager } from '../../src/enhanced-sync/bulk-import-manager';
 import { AutoSyncScheduler } from '../../src/enhanced-sync/auto-sync-scheduler';
@@ -36,7 +36,7 @@ import {
 } from '../utils/test-helpers';
 
 // Mock Obsidian dependencies
-jest.mock('obsidian');
+vi.mock('obsidian');
 
 /**
  * Error scenarios to test based on quickstart guide requirements
@@ -78,7 +78,7 @@ describe('Error Handling and Recovery Integration Tests', () => {
     mockRequestUrl = createMockRequestUrl();
     
     // Mock requestUrl with our controlled mock
-    (requestUrl as jest.Mock).mockImplementation(mockRequestUrl.mock);
+    (requestUrl as vi.Mock).mockImplementation(mockRequestUrl.mock);
 
     // Initialize components
     jiraClient = new JiraClient();
@@ -94,7 +94,7 @@ describe('Error Handling and Recovery Integration Tests', () => {
   afterEach(() => {
     mockTimer.uninstall();
     testEnv.teardown();
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('Network Connectivity Error Handling', () => {
@@ -158,13 +158,13 @@ describe('Error Handling and Recovery Integration Tests', () => {
     it('should provide user notification during network issues', async () => {
       // Arrange: Setup to capture user notifications
       const notificationsSent: string[] = [];
-      const mockNotice = jest.fn((message: string) => {
+      const mockNotice = vi.fn((message: string) => {
         notificationsSent.push(message);
       });
 
       // Mock Obsidian Notice
-      jest.doMock('obsidian', () => ({
-        ...jest.requireActual('obsidian'),
+      vi.doMock('obsidian', () => ({
+        ...vi.requireActual('obsidian'),
         Notice: mockNotice
       }));
 
@@ -312,7 +312,7 @@ describe('Error Handling and Recovery Integration Tests', () => {
       mockRequestUrl.mockError(401, 'Authentication failed. Invalid credentials.');
 
       const credentialRefreshPrompts: Array<{ type: string; message: string }> = [];
-      const mockCredentialPrompt = jest.fn((type, message) => {
+      const mockCredentialPrompt = vi.fn((type, message) => {
         credentialRefreshPrompts.push({ type, message });
         return Promise.resolve(false); // User cancels
       });

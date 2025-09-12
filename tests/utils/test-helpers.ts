@@ -40,7 +40,7 @@ export async function waitFor(
  * Waits for a callback to be called a certain number of times
  */
 export async function waitForCalls(
-  mockFunction: jest.Mock,
+  mockFunction: vi.Mock,
   expectedCallCount: number,
   timeout: number = 5000
 ): Promise<void> {
@@ -113,7 +113,7 @@ export class MockTimer {
    * Installs the mock timer
    */
   install(): void {
-    global.setTimeout = jest.fn((callback: () => void, delay: number) => {
+    global.setTimeout = vi.fn((callback: () => void, delay: number) => {
       const id = this.timerIdCounter++;
       this.timers.set(id, {
         callback,
@@ -123,7 +123,7 @@ export class MockTimer {
       return id as any;
     });
 
-    global.setInterval = jest.fn((callback: () => void, delay: number) => {
+    global.setInterval = vi.fn((callback: () => void, delay: number) => {
       const id = this.timerIdCounter++;
       this.timers.set(id, {
         callback,
@@ -134,15 +134,15 @@ export class MockTimer {
       return id as any;
     });
 
-    global.clearTimeout = jest.fn((id: number) => {
+    global.clearTimeout = vi.fn((id: number) => {
       this.timers.delete(id);
     });
 
-    global.clearInterval = jest.fn((id: number) => {
+    global.clearInterval = vi.fn((id: number) => {
       this.timers.delete(id);
     });
 
-    Date.now = jest.fn(() => this.currentTime);
+    Date.now = vi.fn(() => this.currentTime);
   }
 
   /**
@@ -259,13 +259,13 @@ export class MockTimer {
  * Creates a mock progress callback that tracks calls
  */
 export function createMockProgressCallback(): {
-  callback: jest.Mock;
+  callback: vi.Mock;
   getCalls: () => Array<{ current: number; total: number; phase: string; details?: any }>;
   getLastCall: () => { current: number; total: number; phase: string; details?: any } | null;
   waitForPhase: (phase: string, timeout?: number) => Promise<void>;
   waitForCompletion: (timeout?: number) => Promise<void>;
 } {
-  const callback = jest.fn();
+  const callback = vi.fn();
   
   return {
     callback,
@@ -308,13 +308,13 @@ export function createMockProgressCallback(): {
  * Creates a mock error callback that tracks errors
  */
 export function createMockErrorCallback(): {
-  callback: jest.Mock;
+  callback: vi.Mock;
   getErrors: () => Array<{ ticketKey: string; error: string }>;
   getErrorCount: () => number;
   hasError: (ticketKey: string) => boolean;
   waitForError: (ticketKey?: string, timeout?: number) => Promise<void>;
 } {
-  const callback = jest.fn();
+  const callback = vi.fn();
   
   return {
     callback,
@@ -419,14 +419,14 @@ export class RetryTester {
  * Mock for Obsidian's requestUrl function
  */
 export function createMockRequestUrl(): {
-  mock: jest.Mock;
+  mock: vi.Mock;
   mockSuccess: (response: any) => void;
   mockError: (status: number, message?: string, headers?: Record<string, string>) => void;
   mockNetworkError: (message?: string) => void;
   getLastCall: () => any;
   getCallCount: () => number;
 } {
-  const mock = jest.fn();
+  const mock = vi.fn();
 
   return {
     mock,
@@ -467,12 +467,12 @@ export class TestEnvironment {
    */
   setup(): void {
     // Clean up any existing mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Setup console mocking
-    this.mockConsole.log = jest.fn();
-    this.mockConsole.warn = jest.fn();
-    this.mockConsole.error = jest.fn();
+    this.mockConsole.log = vi.fn();
+    this.mockConsole.warn = vi.fn();
+    this.mockConsole.error = vi.fn();
     
     Object.assign(console, this.mockConsole);
   }
@@ -490,7 +490,7 @@ export class TestEnvironment {
       }
     }
     
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   }
 
   /**
@@ -507,9 +507,9 @@ export class TestEnvironment {
    * Gets mock console for assertions
    */
   getMockConsole(): {
-    log: jest.Mock;
-    warn: jest.Mock;
-    error: jest.Mock;
+    log: vi.Mock;
+    warn: vi.Mock;
+    error: vi.Mock;
   } {
     return this.mockConsole as any;
   }
@@ -666,7 +666,7 @@ export const assertions = {
    * Asserts that a mock function was called with partial arguments
    */
   toHaveBeenCalledWithPartial(
-    mockFn: jest.Mock,
+    mockFn: vi.Mock,
     expectedArgs: any[]
   ): void {
     const calls = mockFn.mock.calls;

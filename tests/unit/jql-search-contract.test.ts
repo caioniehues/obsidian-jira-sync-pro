@@ -1,9 +1,9 @@
-import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, vi, beforeEach, afterEach } from '@vitest/globals';
 import { JiraClient, JiraClientConfig } from '../../src/jira-bases-adapter/jira-client';
 import { requestUrl, RequestUrlResponse } from 'obsidian';
 
 // Mock Obsidian's requestUrl
-jest.mock('obsidian');
+vi.mock('obsidian');
 
 /**
  * JQL Search Contract Tests
@@ -17,7 +17,7 @@ jest.mock('obsidian');
  */
 describe('JQL Search Contract Tests', () => {
   let jiraClient: JiraClient;
-  let mockRequestUrl: jest.MockedFunction<typeof requestUrl>;
+  let mockRequestUrl: vi.MockedFunction<typeof requestUrl>;
   
   const validConfig: JiraClientConfig = {
     baseUrl: 'https://test.atlassian.net',
@@ -26,12 +26,12 @@ describe('JQL Search Contract Tests', () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     jiraClient = new JiraClient();
     jiraClient.configure(validConfig);
     
     // Setup requestUrl mock with default success response
-    mockRequestUrl = requestUrl as jest.MockedFunction<typeof requestUrl>;
+    mockRequestUrl = requestUrl as vi.MockedFunction<typeof requestUrl>;
     mockRequestUrl.mockResolvedValue({
       status: 200,
       headers: { 'content-type': 'application/json' },
@@ -42,7 +42,7 @@ describe('JQL Search Contract Tests', () => {
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   describe('API Endpoint Contract', () => {

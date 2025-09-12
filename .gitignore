@@ -5,6 +5,7 @@ node_modules/
 dist/
 main.js
 *.js.map
+web-bundles/
 
 # Test coverage
 coverage/
@@ -35,3 +36,11 @@ yarn-error.log*
 
 # Obsidian
 data.json
+
+# Temporary files
+temp_*
+*.backup
+*.backup2
+
+# Generated JavaScript from TypeScript mocks
+tests/__mocks__/*.js

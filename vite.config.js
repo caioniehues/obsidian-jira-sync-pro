@@ -1,32 +1,28 @@
 import { defineConfig } from 'vite';
-import { resolve } from 'path';
+import { builtinModules } from 'module';
 
 export default defineConfig({
   build: {
     lib: {
-      entry: resolve(__dirname, 'src/main.ts'),
-      name: 'JiraSyncPro',
-      fileName: () => 'main.js',
-      formats: ['cjs']
+      entry: 'src/main.ts',
+      formats: ['cjs'],
+      fileName: () => 'main.js'
     },
     rollupOptions: {
-      external: ['obsidian'],
+      external: [
+        'obsidian',
+        'electron',
+        ...builtinModules,
+        ...builtinModules.map(m => `node:${m}`)
+      ],
       output: {
-        dir: '.',
-        format: 'cjs',
-        exports: 'default',
-        globals: {
-          obsidian: 'obsidian'
-        }
+        assetFileNames: 'styles.css',
+        entryFileNames: 'main.js'
       }
     },
+    outDir: '.',
+    emptyOutDir: false,
     sourcemap: 'inline',
-    minify: false,
-    emptyOutDir: false
-  },
-  resolve: {
-    alias: {
-      '@': resolve(__dirname, './src')
-    }
+    minify: process.env.NODE_ENV === 'production'
   }
 });

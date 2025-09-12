@@ -274,11 +274,11 @@ export class Vault {
   }
 
   adapter = {
-    exists: jest.fn().mockResolvedValue(true),
-    read: jest.fn().mockResolvedValue('mock content'),
-    write: jest.fn().mockResolvedValue(undefined),
-    mkdir: jest.fn().mockResolvedValue(undefined),
-    list: jest.fn().mockResolvedValue({ files: [], folders: [] })
+    exists: vi.fn().mockResolvedValue(true),
+    read: vi.fn().mockResolvedValue('mock content'),
+    write: vi.fn().mockResolvedValue(undefined),
+    mkdir: vi.fn().mockResolvedValue(undefined),
+    list: vi.fn().mockResolvedValue({ files: [], folders: [] })
   };
 }
 
@@ -775,11 +775,11 @@ export class PluginSettingTab {
 }
 
 // Notice Mock
-export const Notice = jest.fn().mockImplementation((message: string, timeout?: number) => {
+export const Notice = vi.fn().mockImplementation((message: string, timeout?: number) => {
   return {
     message,
     timeout: timeout || 5000,
-    hide: jest.fn()
+    hide: vi.fn()
   };
 });
 
@@ -814,7 +814,7 @@ export interface RequestUrlResponse {
   arrayBuffer: ArrayBuffer;
 }
 
-export const requestUrl = jest.fn<Promise<RequestUrlResponse>, [RequestUrlParam | string]>()
+export const requestUrl = vi.fn<Promise<RequestUrlResponse>, [RequestUrlParam | string]>()
   .mockImplementation(async (param) => {
     const url = typeof param === 'string' ? param : param.url;
     return {
@@ -980,8 +980,8 @@ export const document = {
 // Export window mock
 export const window = {
   document,
-  addEventListener: jest.fn(),
-  removeEventListener: jest.fn(),
+  addEventListener: vi.fn(),
+  removeEventListener: vi.fn(),
   setTimeout: global.setTimeout,
   clearTimeout: global.clearTimeout,
   setInterval: global.setInterval,

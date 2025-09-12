@@ -1,40 +1,40 @@
-import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, vi, beforeEach, afterEach } from '@vitest/globals';
 import { AutoSyncScheduler } from '../src/enhanced-sync/auto-sync-scheduler';
 import { JQLQueryEngine } from '../src/enhanced-sync/jql-query-engine';
 import { Plugin } from 'obsidian';
 
 // Mock Obsidian Plugin
-jest.mock('obsidian', () => ({
-  Plugin: jest.fn(),
-  Notice: jest.fn()
+vi.mock('obsidian', () => ({
+  Plugin: vi.fn(),
+  Notice: vi.fn()
 }));
 
 // Mock JQLQueryEngine
-jest.mock('../src/enhanced-sync/jql-query-engine');
+vi.mock('../src/enhanced-sync/jql-query-engine');
 
 // Mock timers
-jest.useFakeTimers();
+vi.useFakeTimers();
 
 describe('AutoSyncScheduler', () => {
   let scheduler: AutoSyncScheduler;
-  let mockPlugin: jest.Mocked<Plugin>;
-  let mockQueryEngine: jest.Mocked<JQLQueryEngine>;
-  let mockSyncCallback: jest.Mock;
+  let mockPlugin: vi.Mocked<Plugin>;
+  let mockQueryEngine: vi.Mocked<JQLQueryEngine>;
+  let mockSyncCallback: vi.Mock;
   let mockConfig: any;
 
   beforeEach(() => {
     // Reset all mocks
-    jest.clearAllMocks();
-    jest.clearAllTimers();
+    vi.clearAllMocks();
+    vi.clearAllTimers();
     
     // Create mock plugin
     mockPlugin = {
-      loadData: jest.fn().mockResolvedValue({}),
-      saveData: jest.fn().mockResolvedValue(undefined)
+      loadData: vi.fn().mockResolvedValue({}),
+      saveData: vi.fn().mockResolvedValue(undefined)
     } as any;
     
     // Create mock query engine
-    mockQueryEngine = new JQLQueryEngine(null as any) as jest.Mocked<JQLQueryEngine>;
+    mockQueryEngine = new JQLQueryEngine(null as any) as vi.Mocked<JQLQueryEngine>;
     
     // Create mock config
     mockConfig = {
@@ -46,7 +46,7 @@ describe('AutoSyncScheduler', () => {
     };
     
     // Create mock sync callback
-    mockSyncCallback = jest.fn().mockResolvedValue(undefined);
+    mockSyncCallback = vi.fn().mockResolvedValue(undefined);
     
     // Initialize scheduler
     scheduler = new AutoSyncScheduler(
@@ -60,7 +60,7 @@ describe('AutoSyncScheduler', () => {
   afterEach(() => {
     // Stop scheduler if running
     scheduler?.stop();
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   describe('Scheduler Lifecycle', () => {
@@ -73,7 +73,7 @@ describe('AutoSyncScheduler', () => {
       expect(mockSyncCallback).toHaveBeenCalledTimes(1); // Immediate sync on start
       
       // Advance timer and check periodic sync
-      jest.advanceTimersByTime(5 * 60 * 1000); // 5 minutes
+      vi.advanceTimersByTime(5 * 60 * 1000); // 5 minutes
       expect(mockSyncCallback).toHaveBeenCalledTimes(2);
     });
 
@@ -90,7 +90,7 @@ describe('AutoSyncScheduler', () => {
       
       // Advance timer and verify no more syncs
       const callCount = mockSyncCallback.mock.calls.length;
-      jest.advanceTimersByTime(10 * 60 * 1000); // 10 minutes
+      vi.advanceTimersByTime(10 * 60 * 1000); // 10 minutes
       expect(mockSyncCallback).toHaveBeenCalledTimes(callCount); // No additional calls
     });
 
@@ -119,7 +119,7 @@ describe('AutoSyncScheduler', () => {
       await Promise.resolve(); // Let async operations settle
       expect(mockSyncCallback).toHaveBeenCalledTimes(1); // Initial sync
       
-      jest.advanceTimersByTime(1 * 60 * 1000);
+      vi.advanceTimersByTime(1 * 60 * 1000);
       expect(mockSyncCallback).toHaveBeenCalledTimes(2);
       scheduler.stop();
       
@@ -132,7 +132,7 @@ describe('AutoSyncScheduler', () => {
       await Promise.resolve(); // Let async operations settle
       expect(mockSyncCallback).toHaveBeenCalledTimes(1); // Initial sync
       
-      jest.advanceTimersByTime(60 * 60 * 1000);
+      vi.advanceTimersByTime(60 * 60 * 1000);
       expect(mockSyncCallback).toHaveBeenCalledTimes(2);
     });
 
@@ -156,10 +156,10 @@ describe('AutoSyncScheduler', () => {
       scheduler.updateInterval(2);
       
       // Verify new interval is active
-      jest.advanceTimersByTime(2 * 60 * 1000);
+      vi.advanceTimersByTime(2 * 60 * 1000);
       expect(mockSyncCallback).toHaveBeenCalledTimes(2);
       
-      jest.advanceTimersByTime(2 * 60 * 1000);
+      vi.advanceTimersByTime(2 * 60 * 1000);
       expect(mockSyncCallback).toHaveBeenCalledTimes(3);
     });
   });
@@ -189,7 +189,7 @@ describe('AutoSyncScheduler', () => {
       expect(mockSyncCallback).toHaveBeenCalledTimes(1);
       
       // Next sync should still occur
-      jest.advanceTimersByTime(5 * 60 * 1000);
+      vi.advanceTimersByTime(5 * 60 * 1000);
       expect(mockSyncCallback).toHaveBeenCalledTimes(2);
     });
   });
@@ -262,24 +262,24 @@ describe('AutoSyncScheduler', () => {
       });
 
       // Act - Trigger sync that will fail
-      jest.advanceTimersByTime(5 * 60 * 1000);
+      vi.advanceTimersByTime(5 * 60 * 1000);
       await Promise.resolve();
 
       // Assert - Check exponential backoff delays
       expect(scheduler.getFailureCount()).toBe(1);
       
       // First retry after 1 minute (base delay)
-      jest.advanceTimersByTime(1 * 60 * 1000);
+      vi.advanceTimersByTime(1 * 60 * 1000);
       await Promise.resolve();
       expect(scheduler.getFailureCount()).toBe(2);
       
       // Second retry after 2 minutes (exponential)
-      jest.advanceTimersByTime(2 * 60 * 1000);
+      vi.advanceTimersByTime(2 * 60 * 1000);
       await Promise.resolve();
       expect(scheduler.getFailureCount()).toBe(3);
       
       // Third retry after 4 minutes (exponential)
-      jest.advanceTimersByTime(4 * 60 * 1000);
+      vi.advanceTimersByTime(4 * 60 * 1000);
       await Promise.resolve();
       expect(scheduler.getFailureCount()).toBe(0); // Reset on success
     });
@@ -291,7 +291,7 @@ describe('AutoSyncScheduler', () => {
 
       // Act - Simulate many failures
       for (let i = 0; i < 10; i++) {
-        jest.advanceTimersByTime(30 * 60 * 1000); // Max delay is 30 minutes
+        vi.advanceTimersByTime(30 * 60 * 1000); // Max delay is 30 minutes
       }
 
       // Assert - Verify max delay is respected
@@ -312,15 +312,15 @@ describe('AutoSyncScheduler', () => {
         .mockResolvedValueOnce(undefined); // Success
 
       // Act - Trigger failures then success
-      jest.advanceTimersByTime(5 * 60 * 1000); // First failure
+      vi.advanceTimersByTime(5 * 60 * 1000); // First failure
       await Promise.resolve();
       expect(scheduler.getFailureCount()).toBe(1);
       
-      jest.advanceTimersByTime(1 * 60 * 1000); // Retry - Second failure
+      vi.advanceTimersByTime(1 * 60 * 1000); // Retry - Second failure
       await Promise.resolve();
       expect(scheduler.getFailureCount()).toBe(2);
       
-      jest.advanceTimersByTime(2 * 60 * 1000); // Retry - Success
+      vi.advanceTimersByTime(2 * 60 * 1000); // Retry - Success
       await Promise.resolve();
       
       // Assert
@@ -389,7 +389,7 @@ describe('AutoSyncScheduler', () => {
       const initialState = scheduler.getState();
 
       // Act
-      jest.advanceTimersByTime(5 * 60 * 1000);
+      vi.advanceTimersByTime(5 * 60 * 1000);
       await Promise.resolve(); // Let async operations complete
 
       // Assert
@@ -439,7 +439,7 @@ describe('AutoSyncScheduler', () => {
       scheduler.updateConfig({ ...mockConfig, syncInterval: 2 });
 
       // Assert - Should use new interval
-      jest.advanceTimersByTime(2 * 60 * 1000);
+      vi.advanceTimersByTime(2 * 60 * 1000);
       expect(mockSyncCallback).toHaveBeenCalledTimes(1);
     });
   });
@@ -451,9 +451,9 @@ describe('AutoSyncScheduler', () => {
       await Promise.resolve();
 
       // Act - Perform multiple syncs
-      jest.advanceTimersByTime(5 * 60 * 1000);
+      vi.advanceTimersByTime(5 * 60 * 1000);
       await Promise.resolve();
-      jest.advanceTimersByTime(5 * 60 * 1000);
+      vi.advanceTimersByTime(5 * 60 * 1000);
       await Promise.resolve();
       
       // Assert
@@ -475,9 +475,9 @@ describe('AutoSyncScheduler', () => {
       await Promise.resolve();
       
       // Act
-      jest.advanceTimersByTime(5 * 60 * 1000); // Failure
+      vi.advanceTimersByTime(5 * 60 * 1000); // Failure
       await Promise.resolve();
-      jest.advanceTimersByTime(1 * 60 * 1000); // Retry success
+      vi.advanceTimersByTime(1 * 60 * 1000); // Retry success
       await Promise.resolve();
 
       // Assert
@@ -539,7 +539,7 @@ describe('AutoSyncScheduler', () => {
       await Promise.resolve();
       
       // Act - Next sync triggers while first is still running
-      jest.advanceTimersByTime(5 * 60 * 1000);
+      vi.advanceTimersByTime(5 * 60 * 1000);
       await Promise.resolve();
 
       // Assert - Should skip the overlapping sync

@@ -541,8 +541,8 @@ export class SyncFactory {
   /**
    * Creates a mock progress callback for testing
    */
-  static createMockProgressCallback(): jest.Mock<void, [number, number, ImportPhase, any?]> {
-    return jest.fn((current: number, total: number, phase: ImportPhase, details?: any) => {
+  static createMockProgressCallback(): vi.Mock<void, [number, number, ImportPhase, any?]> {
+    return vi.fn((current: number, total: number, phase: ImportPhase, details?: any) => {
       // Mock callback that can be inspected in tests
     });
   }
@@ -550,8 +550,8 @@ export class SyncFactory {
   /**
    * Creates a mock error callback for testing
    */
-  static createMockErrorCallback(): jest.Mock<void, [string, string]> {
-    return jest.fn((ticketKey: string, error: string) => {
+  static createMockErrorCallback(): vi.Mock<void, [string, string]> {
+    return vi.fn((ticketKey: string, error: string) => {
       // Mock callback that can be inspected in tests
     });
   }

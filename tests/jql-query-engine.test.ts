@@ -1,44 +1,44 @@
-import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, vi, beforeEach, afterEach } from '@vitest/globals';
 import { JQLQueryEngine } from '../src/enhanced-sync/jql-query-engine';
 import { JiraClient } from '../src/jira-bases-adapter/jira-client';
 import { Notice } from 'obsidian';
 
 // Mock Obsidian Notice
-jest.mock('obsidian', () => ({
-  Notice: jest.fn()
+vi.mock('obsidian', () => ({
+  Notice: vi.fn()
 }));
 
 // Mock JiraClient
-jest.mock('../src/jira-bases-adapter/jira-client');
+vi.mock('../src/jira-bases-adapter/jira-client');
 
 describe('JQLQueryEngine', () => {
   let engine: JQLQueryEngine;
-  let mockJiraClient: jest.Mocked<JiraClient>;
-  let progressCallback: jest.Mock;
+  let mockJiraClient: vi.Mocked<JiraClient>;
+  let progressCallback: vi.Mock;
 
   beforeEach(() => {
     // Reset mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Create mock Jira client
-    mockJiraClient = new JiraClient() as jest.Mocked<JiraClient>;
+    mockJiraClient = new JiraClient() as vi.Mocked<JiraClient>;
     
     // Create progress callback spy
-    progressCallback = jest.fn();
+    progressCallback = vi.fn();
     
     // Initialize engine with mocked client
     engine = new JQLQueryEngine(mockJiraClient);
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   describe('Query Validation', () => {
     it('should validate correct JQL syntax', async () => {
       // Arrange
       const validJQL = 'assignee = currentUser() AND status NOT IN (Done, Closed)';
-      mockJiraClient.searchIssues = jest.fn().mockResolvedValue({
+      mockJiraClient.searchIssues = vi.fn().mockResolvedValue({
         issues: [],
         total: 0,
         startAt: 0,
@@ -60,7 +60,7 @@ describe('JQLQueryEngine', () => {
     it('should reject invalid JQL syntax', async () => {
       // Arrange
       const invalidJQL = 'assignee == currentUser() ANDD status';
-      mockJiraClient.searchIssues = jest.fn().mockRejectedValue({
+      mockJiraClient.searchIssues = vi.fn().mockRejectedValue({
         status: 400,
         message: 'Invalid JQL syntax'
       });
@@ -95,7 +95,7 @@ describe('JQLQueryEngine', () => {
         { key: 'TEST-2', fields: { summary: 'Issue 2' } }
       ];
       
-      mockJiraClient.searchIssues = jest.fn().mockResolvedValue({
+      mockJiraClient.searchIssues = vi.fn().mockResolvedValue({
         issues: mockIssues,
         total: 2,
         startAt: 0,
@@ -129,7 +129,7 @@ describe('JQLQueryEngine', () => {
         fields: { summary: `Issue ${i + 51}` }
       }));
 
-      mockJiraClient.searchIssues = jest.fn()
+      mockJiraClient.searchIssues = vi.fn()
         .mockResolvedValueOnce({
           issues: page1Issues,
           total: 75,
@@ -175,7 +175,7 @@ describe('JQLQueryEngine', () => {
         fields: { summary: `Issue ${i + 51}` }
       }));
 
-      mockJiraClient.searchIssues = jest.fn()
+      mockJiraClient.searchIssues = vi.fn()
         .mockResolvedValueOnce({
           issues: page1Issues,
           total: 2000,
@@ -209,7 +209,7 @@ describe('JQLQueryEngine', () => {
     it('should handle zero results gracefully', async () => {
       // Arrange
       const jql = 'project = EMPTY';
-      mockJiraClient.searchIssues = jest.fn().mockResolvedValue({
+      mockJiraClient.searchIssues = vi.fn().mockResolvedValue({
         issues: [],
         total: 0,
         startAt: 0,
@@ -235,7 +235,7 @@ describe('JQLQueryEngine', () => {
     it('should handle network errors gracefully', async () => {
       // Arrange
       const jql = 'project = TEST';
-      mockJiraClient.searchIssues = jest.fn().mockRejectedValue(
+      mockJiraClient.searchIssues = vi.fn().mockRejectedValue(
         new Error('Network request failed')
       );
 
@@ -259,7 +259,7 @@ describe('JQLQueryEngine', () => {
       };
       const mockIssues = [{ key: 'TEST-1', fields: { summary: 'Issue 1' } }];
 
-      mockJiraClient.searchIssues = jest.fn()
+      mockJiraClient.searchIssues = vi.fn()
         .mockRejectedValueOnce(rateLimitError)
         .mockResolvedValueOnce({
           issues: mockIssues,
@@ -291,7 +291,7 @@ describe('JQLQueryEngine', () => {
         message: 'Authentication required'
       };
 
-      mockJiraClient.searchIssues = jest.fn().mockRejectedValue(authError);
+      mockJiraClient.searchIssues = vi.fn().mockRejectedValue(authError);
 
       // Act & Assert
       await expect(engine.executeQuery({
@@ -314,7 +314,7 @@ describe('JQLQueryEngine', () => {
         message: 'You do not have permission to view these issues'
       };
 
-      mockJiraClient.searchIssues = jest.fn().mockRejectedValue(permissionError);
+      mockJiraClient.searchIssues = vi.fn().mockRejectedValue(permissionError);
 
       // Act & Assert
       await expect(engine.executeQuery({
@@ -333,7 +333,7 @@ describe('JQLQueryEngine', () => {
       // Arrange
       const jql = 'project = TEST';
       const fields = ['summary', 'status', 'assignee', 'priority'];
-      mockJiraClient.searchIssues = jest.fn().mockResolvedValue({
+      mockJiraClient.searchIssues = vi.fn().mockResolvedValue({
         issues: [],
         total: 0,
         startAt: 0,
@@ -359,7 +359,7 @@ describe('JQLQueryEngine', () => {
     it('should use default fields when none specified', async () => {
       // Arrange
       const jql = 'project = TEST';
-      mockJiraClient.searchIssues = jest.fn().mockResolvedValue({
+      mockJiraClient.searchIssues = vi.fn().mockResolvedValue({
         issues: [],
         total: 0,
         startAt: 0,
@@ -405,7 +405,7 @@ describe('JQLQueryEngine', () => {
         fields: { summary: `Issue ${i + 51}` }
       }));
 
-      mockJiraClient.searchIssues = jest.fn()
+      mockJiraClient.searchIssues = vi.fn()
         .mockResolvedValueOnce({
           issues: page1,
           total: 80,
@@ -439,11 +439,11 @@ describe('JQLQueryEngine', () => {
     it('should handle progress callback errors gracefully', async () => {
       // Arrange
       const jql = 'project = TEST';
-      const faultyCallback = jest.fn().mockImplementation(() => {
+      const faultyCallback = vi.fn().mockImplementation(() => {
         throw new Error('Callback error');
       });
       
-      mockJiraClient.searchIssues = jest.fn().mockResolvedValue({
+      mockJiraClient.searchIssues = vi.fn().mockResolvedValue({
         issues: [{ key: 'TEST-1', fields: { summary: 'Issue 1' } }],
         total: 1,
         startAt: 0,
@@ -470,7 +470,7 @@ describe('JQLQueryEngine', () => {
       const jql = 'project = TEST';
       const abortController = new AbortController();
       
-      mockJiraClient.searchIssues = jest.fn().mockImplementation(async () => {
+      mockJiraClient.searchIssues = vi.fn().mockImplementation(async () => {
         // Simulate delay that's longer than the abort timeout
         await new Promise(resolve => setTimeout(resolve, 100));
         // If we get here, the request wasn't aborted in time - return valid data

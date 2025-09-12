@@ -30,6 +30,14 @@ export interface JQLAutoSyncSettings {
   autoSyncEnabled: boolean;
   syncInterval: number; // minutes (1-60)
   
+  // Status-Based Organization
+  enableStatusOrganization?: boolean;
+  activeTicketsFolder?: string;
+  archivedTicketsFolder?: string;
+  archiveByYear?: boolean;
+  keepRecentArchive?: boolean;
+  recentArchiveDays?: number;
+  
   // Advanced Settings
   maxResults: number;
   batchSize: number;
@@ -46,9 +54,15 @@ export const DEFAULT_JQL_SETTINGS: JQLAutoSyncSettings = {
   jqlQuery: 'assignee = currentUser() AND status NOT IN (Done, Closed)',
   autoSyncEnabled: false,
   syncInterval: 5,
+  enableStatusOrganization: true,
+  activeTicketsFolder: 'Active Tickets',
+  archivedTicketsFolder: 'Archived Tickets',
+  archiveByYear: true,
+  keepRecentArchive: true,
+  recentArchiveDays: 30,
   maxResults: 1000,
   batchSize: 50,
-  syncFolder: 'Areas/Work/Jira Tickets'
+  syncFolder: 'Knowledge/Work'
 };
 
 /**
@@ -115,6 +129,7 @@ export class JQLAutoSyncSettingsTab extends PluginSettingTab {
     this.renderHeader();
     this.renderConnectionSettings();
     this.renderSyncConfiguration();
+    this.renderStatusOrganization();
     this.renderAdvancedSettings();
     this.renderActions();
     this.addCustomStyles();
@@ -201,6 +216,100 @@ export class JQLAutoSyncSettingsTab extends PluginSettingTab {
     
     // Sync interval slider
     this.renderSyncIntervalSlider();
+  }
+
+  /**
+   * Renders status-based organization settings
+   */
+  private renderStatusOrganization(): void {
+    const { containerEl } = this;
+    
+    containerEl.createEl('h3', { text: 'Status-Based Organization' });
+
+    // Enable/Disable toggle
+    new Setting(containerEl)
+      .setName('Enable Status Organization')
+      .setDesc('Automatically organize tickets based on their status')
+      .addToggle(toggle => toggle
+        .setValue(this.settings.enableStatusOrganization ?? true)
+        .onChange(async (value) => {
+          this.settings.enableStatusOrganization = value;
+          await this.saveSettings();
+          // Refresh the display to show/hide related settings
+          this.display();
+        }));
+
+    if (this.settings.enableStatusOrganization) {
+      // Active tickets folder
+      new Setting(containerEl)
+        .setName('Active Tickets Folder')
+        .setDesc('Folder name for active tickets (relative to sync folder)')
+        .addText(text => text
+          .setPlaceholder('Active Tickets')
+          .setValue(this.settings.activeTicketsFolder ?? 'Active Tickets')
+          .onChange(async (value) => {
+            this.settings.activeTicketsFolder = value;
+            await this.saveSettings();
+          }));
+
+      // Archived tickets folder
+      new Setting(containerEl)
+        .setName('Archived Tickets Folder')
+        .setDesc('Folder name for archived tickets (relative to sync folder)')
+        .addText(text => text
+          .setPlaceholder('Archived Tickets')
+          .setValue(this.settings.archivedTicketsFolder ?? 'Archived Tickets')
+          .onChange(async (value) => {
+            this.settings.archivedTicketsFolder = value;
+            await this.saveSettings();
+          }));
+
+      // Archive by year toggle
+      new Setting(containerEl)
+        .setName('Archive by Year')
+        .setDesc('Organize archived tickets into year-based subfolders')
+        .addToggle(toggle => toggle
+          .setValue(this.settings.archiveByYear ?? true)
+          .onChange(async (value) => {
+            this.settings.archiveByYear = value;
+            await this.saveSettings();
+            // Refresh display to show/hide year-based settings
+            this.display();
+          }));
+
+      // Keep recent archive toggle
+      new Setting(containerEl)
+        .setName('Keep Recent Archive')
+        .setDesc('Keep recently closed tickets in a separate "Recent" folder')
+        .addToggle(toggle => toggle
+          .setValue(this.settings.keepRecentArchive ?? true)
+          .onChange(async (value) => {
+            this.settings.keepRecentArchive = value;
+            await this.saveSettings();
+            // Refresh display to show/hide recent archive settings
+            this.display();
+          }));
+
+      if (this.settings.keepRecentArchive) {
+        // Recent archive days
+        new Setting(containerEl)
+          .setName('Recent Archive Days')
+          .setDesc('Number of days to keep tickets in the Recent folder (1-365)')
+          .addText(text => text
+            .setPlaceholder('30')
+            .setValue(String(this.settings.recentArchiveDays ?? 30))
+            .onChange(async (value) => {
+              const days = parseInt(value);
+              if (!isNaN(days) && days >= 1 && days <= 365) {
+                this.settings.recentArchiveDays = days;
+                await this.saveSettings();
+              } else {
+                text.inputEl.classList.add('is-invalid');
+                new Notice('Please enter a value between 1 and 365');
+              }
+            }));
+      }
+    }
   }
 
   /**
@@ -550,6 +659,13 @@ export class JQLAutoSyncSettingsTab extends PluginSettingTab {
     
     this.clearInputError(inputEl);
     this.settings.syncFolder = value;
+    await this.onSettingsChanged(this.settings);
+  }
+
+  /**
+   * Helper method to save settings
+   */
+  private async saveSettings(): Promise<void> {
     await this.onSettingsChanged(this.settings);
   }
 

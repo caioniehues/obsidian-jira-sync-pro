@@ -1,16 +1,16 @@
-import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, vi, beforeEach, afterEach } from '@vitest/globals';
 import { SyncStatistics, SyncStatisticsManager } from '../../src/data-model/sync-statistics';
 
 // Mock Date.now() for consistent testing
 const mockNow = 1694350800000; // Fixed timestamp: 2023-09-10 12:00:00 UTC
-const mockDate = jest.spyOn(Date, 'now').mockReturnValue(mockNow);
+const mockDate = vi.spyOn(Date, 'now').mockReturnValue(mockNow);
 
 describe('SyncStatistics Data Model', () => {
   let stats: SyncStatistics;
   let statsManager: SyncStatisticsManager;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockDate.mockReturnValue(mockNow);
     
     // Initialize fresh statistics instance
@@ -36,7 +36,7 @@ describe('SyncStatistics Data Model', () => {
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   describe('Initial State', () => {

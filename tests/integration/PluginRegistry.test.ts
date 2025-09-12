@@ -38,14 +38,14 @@ describe('PluginRegistry - Capability Detection and Health Monitoring', () => {
               removeGlobalFilter: false
             },
             api: {
-              getTasks: jest.fn().mockResolvedValue([])
+              getTasks: vi.fn().mockResolvedValue([])
             }
           },
           'dataview': {
             manifest: manifests['dataview'],
             api: {
-              query: jest.fn().mockResolvedValue({ values: [] }),
-              queryMarkdown: jest.fn().mockResolvedValue(''),
+              query: vi.fn().mockResolvedValue({ values: [] }),
+              queryMarkdown: vi.fn().mockResolvedValue(''),
               index: {
                 pages: new Map(),
                 tasks: new Map()

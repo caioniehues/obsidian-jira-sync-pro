@@ -14,12 +14,12 @@
 export const areFakeTimersActive = (): boolean => {
   try {
     // Check if we can get timer count - this is only available with fake timers
-    const timerCount = jest.getTimerCount();
+    const timerCount = vi.getTimerCount();
     return typeof timerCount === 'number';
   } catch {
     // If getTimerCount fails, try checking if advanceTimersByTime works
     try {
-      jest.advanceTimersByTime(0);
+      vi.advanceTimersByTime(0);
       return true;
     } catch {
       return false;
@@ -33,7 +33,7 @@ export const areFakeTimersActive = (): boolean => {
  */
 export const ensureFakeTimers = (): void => {
   if (!areFakeTimersActive()) {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
   }
 };
 
@@ -45,16 +45,16 @@ export const safelyCleanupTimers = (restoreRealTimers = false): void => {
   try {
     if (areFakeTimersActive()) {
       // Clear any pending timers if fake timers are active
-      jest.clearAllTimers();
+      vi.clearAllTimers();
     }
     
     if (restoreRealTimers) {
-      jest.useRealTimers();
+      vi.useRealTimers();
     }
   } catch (error) {
     // If cleanup fails, just restore real timers as fallback
     try {
-      jest.useRealTimers();
+      vi.useRealTimers();
     } catch {
       // Silently ignore if even real timers can't be restored
     }
@@ -95,7 +95,7 @@ const immediatePolyfill = (callback: () => void) => {
  */
 export const advanceTimersAndFlush = async (ms: number): Promise<void> => {
   if (areFakeTimersActive()) {
-    jest.advanceTimersByTime(ms);
+    vi.advanceTimersByTime(ms);
     await new Promise(resolve => immediatePolyfill(resolve));
   } else {
     // If real timers, just wait the actual time
@@ -109,7 +109,7 @@ export const advanceTimersAndFlush = async (ms: number): Promise<void> => {
  */
 export const runAllTimersAndFlush = async (): Promise<void> => {
   if (areFakeTimersActive()) {
-    jest.runAllTimers();
+    vi.runAllTimers();
     await new Promise(resolve => immediatePolyfill(resolve));
   } else {
     // With real timers, just flush the event loop
@@ -134,7 +134,7 @@ export class TimerController {
     
     // Set system time if fake timers are available
     if (areFakeTimersActive()) {
-      jest.setSystemTime(this.startTime);
+      vi.setSystemTime(this.startTime);
     }
   }
 
@@ -143,7 +143,7 @@ export class TimerController {
    */
   advance(ms: number): void {
     if (areFakeTimersActive()) {
-      jest.advanceTimersByTime(ms);
+      vi.advanceTimersByTime(ms);
     } else {
       console.warn('TimerController.advance() called but fake timers are not active');
     }
@@ -154,7 +154,7 @@ export class TimerController {
    */
   setTime(timestamp: number): void {
     if (areFakeTimersActive()) {
-      jest.setSystemTime(timestamp);
+      vi.setSystemTime(timestamp);
     } else {
       console.warn('TimerController.setTime() called but fake timers are not active');
     }
@@ -172,7 +172,7 @@ export class TimerController {
    */
   reset(): void {
     if (areFakeTimersActive()) {
-      jest.setSystemTime(this.startTime);
+      vi.setSystemTime(this.startTime);
     }
   }
 
@@ -181,7 +181,7 @@ export class TimerController {
    */
   runAllTimers(): void {
     if (areFakeTimersActive()) {
-      jest.runAllTimers();
+      vi.runAllTimers();
     } else {
       console.warn('TimerController.runAllTimers() called but fake timers are not active');
     }
@@ -192,7 +192,7 @@ export class TimerController {
    */
   runOnlyPendingTimers(): void {
     if (areFakeTimersActive()) {
-      jest.runOnlyPendingTimers();
+      vi.runOnlyPendingTimers();
     } else {
       console.warn('TimerController.runOnlyPendingTimers() called but fake timers are not active');
     }
@@ -274,7 +274,7 @@ export class MockScheduler {
    */
   executeAllTimers(): void {
     if (areFakeTimersActive()) {
-      jest.runAllTimers();
+      vi.runAllTimers();
     } else {
       console.warn('MockScheduler.executeAllTimers() called but fake timers are not active');
     }
@@ -285,7 +285,7 @@ export class MockScheduler {
    */
   advanceTime(ms: number): void {
     if (areFakeTimersActive()) {
-      jest.advanceTimersByTime(ms);
+      vi.advanceTimersByTime(ms);
     } else {
       console.warn('MockScheduler.advanceTime() called but fake timers are not active');
     }

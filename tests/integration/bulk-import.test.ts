@@ -13,7 +13,7 @@
  * - UI responsiveness and progress feedback
  */
 
-import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, vi, beforeEach, afterEach } from '@vitest/globals';
 import { BulkImportManager } from '../../src/enhanced-sync/bulk-import-manager';
 import { JQLQueryEngine } from '../../src/enhanced-sync/jql-query-engine';
 import { JiraClient } from '../../src/jira-bases-adapter/jira-client';
@@ -30,24 +30,24 @@ import {
 import { Plugin, Notice, Vault, TFile, App } from 'obsidian';
 
 // Mock Obsidian components
-jest.mock('obsidian', () => ({
-  Plugin: jest.fn(),
-  Notice: jest.fn(),
-  Vault: jest.fn(),
-  TFile: jest.fn(),
-  App: jest.fn(),
-  normalizePath: jest.fn((path: string) => path),
-  Modal: jest.fn().mockImplementation(() => ({
-    open: jest.fn(),
-    close: jest.fn(),
-    onOpen: jest.fn(),
-    onClose: jest.fn()
+vi.mock('obsidian', () => ({
+  Plugin: vi.fn(),
+  Notice: vi.fn(),
+  Vault: vi.fn(),
+  TFile: vi.fn(),
+  App: vi.fn(),
+  normalizePath: vi.fn((path: string) => path),
+  Modal: vi.fn().mockImplementation(() => ({
+    open: vi.fn(),
+    close: vi.fn(),
+    onOpen: vi.fn(),
+    onClose: vi.fn()
   }))
 }));
 
 // Mock enhanced sync components
-jest.mock('../../src/enhanced-sync/jql-query-engine');
-jest.mock('../../src/jira-bases-adapter/jira-client');
+vi.mock('../../src/enhanced-sync/jql-query-engine');
+vi.mock('../../src/jira-bases-adapter/jira-client');
 
 /**
  * Interface for Progressive Import Modal (to be implemented)
@@ -117,19 +117,19 @@ interface ProgressiveImportState {
 
 describe('Progressive Bulk Import Integration', () => {
   let manager: ProgressiveBulkImportManager;
-  let mockPlugin: jest.Mocked<Plugin>;
-  let mockQueryEngine: jest.Mocked<JQLQueryEngine>;
-  let mockJiraClient: jest.Mocked<JiraClient>;
-  let mockVault: jest.Mocked<Vault>;
-  let mockApp: jest.Mocked<App>;
-  let mockModal: jest.Mocked<ProgressiveImportModal>;
+  let mockPlugin: vi.Mocked<Plugin>;
+  let mockQueryEngine: vi.Mocked<JQLQueryEngine>;
+  let mockJiraClient: vi.Mocked<JiraClient>;
+  let mockVault: vi.Mocked<Vault>;
+  let mockApp: vi.Mocked<App>;
+  let mockModal: vi.Mocked<ProgressiveImportModal>;
   let mockTimer: MockTimer;
   let progressCallback: ReturnType<typeof createMockProgressCallback>;
   let errorCallback: ReturnType<typeof createMockErrorCallback>;
 
   beforeEach(() => {
     // Reset all mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     JiraFactory.resetCounter();
     
     // Setup mock timer for testing delays and timeouts
@@ -141,53 +141,53 @@ describe('Progressive Bulk Import Integration', () => {
       baseUrl: 'https://test.atlassian.net',
       email: 'test@example.com', 
       apiToken: 'test-token'
-    }) as jest.Mocked<JiraClient>;
+    }) as vi.Mocked<JiraClient>;
     
     // Create mock vault with file system operations
     mockVault = {
       adapter: {
-        exists: jest.fn().mockResolvedValue(false),
-        list: jest.fn().mockResolvedValue({ files: [], folders: [] }),
-        path: jest.fn(),
-        read: jest.fn().mockResolvedValue(''),
-        write: jest.fn().mockResolvedValue(undefined)
+        exists: vi.fn().mockResolvedValue(false),
+        list: vi.fn().mockResolvedValue({ files: [], folders: [] }),
+        path: vi.fn(),
+        read: vi.fn().mockResolvedValue(''),
+        write: vi.fn().mockResolvedValue(undefined)
       },
-      create: jest.fn().mockResolvedValue({ path: 'test.md' } as TFile),
-      modify: jest.fn().mockResolvedValue(undefined),
-      createFolder: jest.fn().mockResolvedValue(undefined),
-      getAbstractFileByPath: jest.fn().mockReturnValue(null),
-      delete: jest.fn().mockResolvedValue(undefined)
+      create: vi.fn().mockResolvedValue({ path: 'test.md' } as TFile),
+      modify: vi.fn().mockResolvedValue(undefined),
+      createFolder: vi.fn().mockResolvedValue(undefined),
+      getAbstractFileByPath: vi.fn().mockReturnValue(null),
+      delete: vi.fn().mockResolvedValue(undefined)
     } as any;
     
     // Create mock app
     mockApp = {
       vault: mockVault,
       workspace: {
-        getActiveFile: jest.fn(),
-        openLinkText: jest.fn()
+        getActiveFile: vi.fn(),
+        openLinkText: vi.fn()
       }
     } as any;
     
     // Create mock plugin
     mockPlugin = {
       app: mockApp,
-      loadData: jest.fn().mockResolvedValue({}),
-      saveData: jest.fn().mockResolvedValue(undefined),
+      loadData: vi.fn().mockResolvedValue({}),
+      saveData: vi.fn().mockResolvedValue(undefined),
       manifest: { id: 'jira-sync-pro', name: 'Jira Sync Pro' }
     } as any;
     
     // Create mock query engine
-    mockQueryEngine = new JQLQueryEngine(mockJiraClient) as jest.Mocked<JQLQueryEngine>;
+    mockQueryEngine = new JQLQueryEngine(mockJiraClient) as vi.Mocked<JQLQueryEngine>;
     
     // Create mock progress modal
     mockModal = {
-      open: jest.fn(),
-      close: jest.fn(), 
-      updateProgress: jest.fn(),
-      showCancelButton: jest.fn(),
-      onCancel: jest.fn(),
-      showErrorSummary: jest.fn()
-    } as jest.Mocked<ProgressiveImportModal>;
+      open: vi.fn(),
+      close: vi.fn(), 
+      updateProgress: vi.fn(),
+      showCancelButton: vi.fn(),
+      onCancel: vi.fn(),
+      showErrorSummary: vi.fn()
+    } as vi.Mocked<ProgressiveImportModal>;
     
     // Create callback helpers
     progressCallback = createMockProgressCallback();
@@ -199,7 +199,7 @@ describe('Progressive Bulk Import Integration', () => {
 
   afterEach(() => {
     mockTimer.uninstall();
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   describe('Large Dataset Processing with Batch Management', () => {
@@ -212,7 +212,7 @@ describe('Progressive Bulk Import Integration', () => {
       const mockTickets = JiraFactory.createBulkTestData(TOTAL_TICKETS);
       const searchResponse = mockTickets.searchResponse;
       
-      mockQueryEngine.executeQuery = jest.fn().mockResolvedValue({
+      mockQueryEngine.executeQuery = vi.fn().mockResolvedValue({
         issues: mockTickets.issues,
         total: TOTAL_TICKETS,
         truncated: false,
@@ -221,7 +221,7 @@ describe('Progressive Bulk Import Integration', () => {
       
       // Mock file operations to simulate realistic delays
       let processedCount = 0;
-      mockVault.create = jest.fn().mockImplementation(async (path: string, content: string) => {
+      mockVault.create = vi.fn().mockImplementation(async (path: string, content: string) => {
         processedCount++;
         // Simulate processing time
         await new Promise(resolve => setTimeout(resolve, 50));
@@ -265,14 +265,14 @@ describe('Progressive Bulk Import Integration', () => {
     it('should display current ticket being processed in progress modal', async () => {
       // Arrange
       const tickets = JiraFactory.createBulkTestData(10);
-      mockQueryEngine.executeQuery = jest.fn().mockResolvedValue({
+      mockQueryEngine.executeQuery = vi.fn().mockResolvedValue({
         issues: tickets.issues,
         total: 10,
         truncated: false
       });
       
       let ticketProcessingOrder: string[] = [];
-      mockVault.create = jest.fn().mockImplementation(async (path: string) => {
+      mockVault.create = vi.fn().mockImplementation(async (path: string) => {
         // Extract ticket key from path
         const ticketKey = path.match(/([A-Z]+-\d+)\.md$/)?.[1] || 'UNKNOWN';
         ticketProcessingOrder.push(ticketKey);
@@ -309,14 +309,14 @@ describe('Progressive Bulk Import Integration', () => {
       const LARGE_DATASET = 150;
       const tickets = JiraFactory.createBulkTestData(LARGE_DATASET);
       
-      mockQueryEngine.executeQuery = jest.fn().mockResolvedValue({
+      mockQueryEngine.executeQuery = vi.fn().mockResolvedValue({
         issues: tickets.issues,
         total: LARGE_DATASET,
         truncated: false
       });
 
       let uiUpdates: number[] = [];
-      mockModal.updateProgress = jest.fn().mockImplementation((current: number) => {
+      mockModal.updateProgress = vi.fn().mockImplementation((current: number) => {
         uiUpdates.push(current);
       });
 
@@ -347,7 +347,7 @@ describe('Progressive Bulk Import Integration', () => {
       const TOTAL_TICKETS = 75;
       const tickets = JiraFactory.createBulkTestData(TOTAL_TICKETS);
       
-      mockQueryEngine.executeQuery = jest.fn().mockResolvedValue({
+      mockQueryEngine.executeQuery = vi.fn().mockResolvedValue({
         issues: tickets.issues,
         total: TOTAL_TICKETS,
         truncated: false
@@ -356,7 +356,7 @@ describe('Progressive Bulk Import Integration', () => {
       let processedTickets = 0;
       const processingDelay = createDeferred<void>();
       
-      mockVault.create = jest.fn().mockImplementation(async () => {
+      mockVault.create = vi.fn().mockImplementation(async () => {
         processedTickets++;
         
         // Cancel after processing 30 tickets (middle of second batch)
@@ -373,7 +373,7 @@ describe('Progressive Bulk Import Integration', () => {
       });
 
       // Setup modal cancel callback
-      mockModal.onCancel = jest.fn().mockImplementation((callback) => {
+      mockModal.onCancel = vi.fn().mockImplementation((callback) => {
         // Simulate user clicking cancel
         setTimeout(callback, 100);
       });
@@ -408,14 +408,14 @@ describe('Progressive Bulk Import Integration', () => {
     it('should save state for resume capability when cancelled', async () => {
       // Arrange
       const tickets = JiraFactory.createBulkTestData(50);
-      mockQueryEngine.executeQuery = jest.fn().mockResolvedValue({
+      mockQueryEngine.executeQuery = vi.fn().mockResolvedValue({
         issues: tickets.issues,
         total: 50,
         truncated: false
       });
 
       let cancelAfterTickets = 0;
-      mockVault.create = jest.fn().mockImplementation(async (path: string) => {
+      mockVault.create = vi.fn().mockImplementation(async (path: string) => {
         cancelAfterTickets++;
         if (cancelAfterTickets === 20) {
           // Cancel after 20 tickets processed
@@ -449,14 +449,14 @@ describe('Progressive Bulk Import Integration', () => {
     it('should not allow new import while one is in progress', async () => {
       // Arrange
       const tickets = JiraFactory.createBulkTestData(30);
-      mockQueryEngine.executeQuery = jest.fn().mockResolvedValue({
+      mockQueryEngine.executeQuery = vi.fn().mockResolvedValue({
         issues: tickets.issues,
         total: 30,
         truncated: false
       });
 
       // Slow down processing to keep first import running
-      mockVault.create = jest.fn().mockImplementation(async () => {
+      mockVault.create = vi.fn().mockImplementation(async () => {
         await new Promise(resolve => setTimeout(resolve, 100));
         return { path: 'test.md' } as TFile;
       });
@@ -511,7 +511,7 @@ describe('Progressive Bulk Import Integration', () => {
         })
       );
       
-      mockQueryEngine.executeQuery = jest.fn().mockResolvedValue({
+      mockQueryEngine.executeQuery = vi.fn().mockResolvedValue({
         issues: remainingTickets,
         total: 60, // Original total
         truncated: false
@@ -552,7 +552,7 @@ describe('Progressive Bulk Import Integration', () => {
       mockPlugin.loadData.mockResolvedValue(savedState);
       
       const remainingTickets = JiraFactory.createBulkTestData(25); // Tickets 16-40
-      mockQueryEngine.executeQuery = jest.fn().mockResolvedValue({
+      mockQueryEngine.executeQuery = vi.fn().mockResolvedValue({
         issues: remainingTickets.issues,
         total: 40,
         truncated: false
@@ -588,7 +588,7 @@ describe('Progressive Bulk Import Integration', () => {
     it('should continue processing after individual ticket failures', async () => {
       // Arrange
       const tickets = JiraFactory.createBulkTestData(20);
-      mockQueryEngine.executeQuery = jest.fn().mockResolvedValue({
+      mockQueryEngine.executeQuery = vi.fn().mockResolvedValue({
         issues: tickets.issues,
         total: 20,
         truncated: false
@@ -596,7 +596,7 @@ describe('Progressive Bulk Import Integration', () => {
 
       // Simulate failures on specific tickets
       const failingTickets = ['TEST-5', 'TEST-12', 'TEST-18'];
-      mockVault.create = jest.fn().mockImplementation(async (path: string) => {
+      mockVault.create = vi.fn().mockImplementation(async (path: string) => {
         const ticketKey = path.match(/([A-Z]+-\d+)\.md$/)?.[1];
         if (failingTickets.some(key => path.includes(key))) {
           throw new Error(`Failed to create ${ticketKey}: Permission denied`);
@@ -642,7 +642,7 @@ describe('Progressive Bulk Import Integration', () => {
         { ...JiraFactory.createScenarioIssue('blocked-epic'), key: '' } // Invalid key
       ];
       
-      mockQueryEngine.executeQuery = jest.fn().mockResolvedValue({
+      mockQueryEngine.executeQuery = vi.fn().mockResolvedValue({
         issues: tickets,
         total: 4,
         truncated: false
@@ -679,7 +679,7 @@ describe('Progressive Bulk Import Integration', () => {
       const TICKET_COUNT = 50;
       const tickets = JiraFactory.createBulkTestData(TICKET_COUNT);
       
-      mockQueryEngine.executeQuery = jest.fn().mockResolvedValue({
+      mockQueryEngine.executeQuery = vi.fn().mockResolvedValue({
         issues: tickets.issues,
         total: TICKET_COUNT,
         truncated: false
@@ -687,13 +687,13 @@ describe('Progressive Bulk Import Integration', () => {
 
       // Simulate consistent processing time
       const PROCESSING_TIME_MS = 100;
-      mockVault.create = jest.fn().mockImplementation(async () => {
+      mockVault.create = vi.fn().mockImplementation(async () => {
         await new Promise(resolve => setTimeout(resolve, PROCESSING_TIME_MS));
         return { path: 'test.md' } as TFile;
       });
 
       let timeEstimates: number[] = [];
-      const enhancedProgress = jest.fn((current, total, phase, details) => {
+      const enhancedProgress = vi.fn((current, total, phase, details) => {
         if (details?.estimatedTimeRemaining) {
           timeEstimates.push(details.estimatedTimeRemaining);
         }
@@ -721,7 +721,7 @@ describe('Progressive Bulk Import Integration', () => {
     it('should track and report throughput metrics', async () => {
       // Arrange
       const tickets = JiraFactory.createBulkTestData(30);
-      mockQueryEngine.executeQuery = jest.fn().mockResolvedValue({
+      mockQueryEngine.executeQuery = vi.fn().mockResolvedValue({
         issues: tickets.issues,
         total: 30,
         truncated: false
@@ -746,7 +746,7 @@ describe('Progressive Bulk Import Integration', () => {
     it('should track detailed import state throughout process', async () => {
       // Arrange
       const tickets = JiraFactory.createBulkTestData(40);
-      mockQueryEngine.executeQuery = jest.fn().mockResolvedValue({
+      mockQueryEngine.executeQuery = vi.fn().mockResolvedValue({
         issues: tickets.issues,
         total: 40,
         truncated: false
@@ -755,7 +755,7 @@ describe('Progressive Bulk Import Integration', () => {
       let stateSnapshots: ProgressiveImportState[] = [];
       
       // Capture state at different points
-      mockVault.create = jest.fn().mockImplementation(async () => {
+      mockVault.create = vi.fn().mockImplementation(async () => {
         const state = manager.getImportState(); // THIS WILL FAIL: getImportState not implemented
         stateSnapshots.push({ ...state });
         return { path: 'test.md' } as TFile;
@@ -793,7 +793,7 @@ describe('Progressive Bulk Import Integration', () => {
       const LARGE_RESULT_SET = 100;
       const tickets = JiraFactory.createBulkTestData(LARGE_RESULT_SET);
       
-      mockQueryEngine.executeQuery = jest.fn().mockResolvedValue({
+      mockQueryEngine.executeQuery = vi.fn().mockResolvedValue({
         issues: tickets.issues,
         total: LARGE_RESULT_SET,
         truncated: false

@@ -1,99 +1,101 @@
-# obsidian-jira-sync-pro Development Guidelines
+# CLAUDE.md
 
-Auto-generated from all feature plans. Last updated: 2025-09-10
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Active Technologies
-- TypeScript 4.9+ with Obsidian Plugin API v1.4.0+ (001-jql-auto-sync)
-- Jira REST API v3 with new JQL search endpoints (001-jql-auto-sync)
-- Jest testing with timer mocking (001-jql-auto-sync)
+## Commands
 
-## Project Structure
-```
-src/
-├── enhanced-sync/
-│   └── jql-query-engine.ts     # JQL query execution with pagination
-├── jira-bases-adapter/
-│   └── jira-client.ts          # Jira API client wrapper
-├── sync/
-│   ├── auto-sync-scheduler.ts   # Interval-based sync scheduling
-│   ├── bulk-import-manager.ts   # Progressive bulk import
-│   └── sync-status-view.ts      # Dashboard component
-└── settings/
-    └── jql-auto-sync-settings.ts # Configuration UI
-
-tests/
-├── unit/
-│   ├── jql-query-engine.test.ts
-│   ├── auto-sync-scheduler.test.ts
-│   └── bulk-import-manager.test.ts
-└── integration/
-    └── jql-auto-sync.test.ts
+### Development
+```bash
+npm run dev          # Build with watch mode for development
+npm run build        # Production build
+npm run quick        # Build + reminder to reload Obsidian (Cmd+R)
+npm run clean        # Clean build artifacts
 ```
 
-## Critical API Migration (Deadline: May 1, 2025)
-⚠️ **IMPORTANT**: Migrate from deprecated Jira API endpoints:
-- OLD: `POST /rest/api/3/search` → NEW: `POST /rest/api/3/search/jql`
-- Pagination: `startAt` → `nextPageToken` (token-based)
-- Field selection: Minimal fields by default, must explicitly request
-- Rate limiting: Stricter limits, implement exponential backoff
+### Testing
+```bash
+npm test                    # Run all tests
+npm run test:watch         # Watch mode for TDD
+npm run test:coverage      # Generate coverage report
+npm test -- --testPathPattern=<pattern>  # Run specific test file/pattern
+npm test -- -t "<test name>"             # Run specific test by name
+```
 
-## Key Features (001-jql-auto-sync)
-- **JQL Query Engine**: Execute configurable JQL queries with pagination support
-- **Auto-Sync Scheduler**: Configurable intervals (1-60 min) with failure recovery
-- **Progressive Bulk Import**: Batch processing (25 tickets/batch) with UI feedback
-- **Configuration UI**: JQL validation, test queries, sync interval slider
-- **Status Dashboard**: Sync statistics, manual trigger, error display
+### Code Quality
+```bash
+npm run lint         # Check code quality
+npm run lint:fix     # Auto-fix linting issues
+```
 
-## Performance Requirements
-- Sync 100 tickets in < 30 seconds
-- Memory usage < 50MB for 500 tickets  
-- API calls < 20 per minute (rate limiting)
-- UI remains responsive (no blocking operations)
+## Architecture Overview
 
-## Code Style
-- Use Obsidian Plugin API directly (no wrapper classes)
-- Direct API calls (no Repository pattern)
-- Component-based architecture with separate classes
-- Async/await for all API operations
-- Structured error handling with user-friendly messages
+This is an Obsidian plugin for syncing Jira tickets, built with TypeScript and the Obsidian Plugin API. The codebase follows a modular architecture with clear separation of concerns:
 
-## Testing Approach
-- TDD with RED-GREEN-Refactor cycle
-- Contract tests for API integration
-- Timer mocking for scheduler tests (known Jest conflicts)
-- Real Jira API calls in integration tests
-- Progress callback testing for bulk operations
+### Core Components
 
-## Recent Changes
-- 001-jql-auto-sync: Added JQL query engine, auto-sync scheduler, API migration support
-- 005-fix-permission-errors: Fixed 403 permission errors and validation issues
+1. **Main Plugin Entry** (`src/main.ts`)
+   - Initializes all components
+   - Manages plugin lifecycle
+   - Coordinates between services
 
-## Known Issues & Solutions
+2. **Sync Engine** (`src/enhanced-sync/`)
+   - `JQLQueryEngine`: Executes JQL queries with pagination
+   - `AutoSyncScheduler`: Manages periodic sync operations
+   - `BulkImportManager`: Handles initial large-scale imports
 
-### Permission Errors (403)
-**Issue**: "You do not have permission to view these issues" error during sync  
-**Solution**: Queries now automatically add permission filters using `projectsWhereUserHasPermission("Browse Projects")`  
-**Workaround**: Add the filter manually to your JQL: `AND project in projectsWhereUserHasPermission("Browse Projects")`
+3. **Integration Layer** (`src/integrations/`)
+   - `IntegrationBridge`: Central coordinator for plugin-to-plugin communication
+   - `EventBus`: Event-driven communication system
+   - `PluginRegistry`: Discovers and manages other Obsidian plugins
+   - Enables communication with task management plugins like Tasks, Dataview, etc.
 
-### Validation Issues
-**Issue**: Settings validation doesn't properly check user permissions  
-**Solution**: Validation now tests queries with permission filters and provides clear feedback  
-**Note**: Connection test may show "⚠️ Limited Access" - this is normal and sync will proceed with accessible issues
+4. **Jira API Client** (`src/jira-bases-adapter/jira-client.ts`)
+   - Wraps Jira REST API v3
+   - Handles authentication and rate limiting
+   - Migrating to new `/search/jql` endpoint (deadline: May 1, 2025)
 
-## Permission Handling
-- All JQL queries are automatically wrapped with permission filters
-- Sync continues with accessible issues even if some are restricted
-- Clear warning messages indicate when issues are filtered
-- Settings validation checks actual permissions, not just syntax
+5. **Note Management** (`src/services/simple-note-service.ts`)
+   - Creates and updates Obsidian notes from Jira tickets
+   - Manages folder structure
+   - Handles note metadata and frontmatter
 
-<!-- MANUAL ADDITIONS START -->
-<!-- MANUAL ADDITIONS END -->
+## Development Patterns
 
-## Important Instruction Reminders
+### Plugin Development
+- Always test credentials before initializing components
+- Use Obsidian's Notice API for user feedback
+- Components should fail gracefully with meaningful error messages
 
-Do what has been asked; nothing more, nothing less.
-NEVER create files unless they're absolutely necessary for achieving your goal.
-ALWAYS prefer editing an existing file to creating a new one.
-NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
+### Testing Approach
+- Mock Obsidian API using `tests/__mocks__/obsidian.ts`
+- Use `jest.useFakeTimers()` explicitly in tests that need timer control
+- Factory pattern for test data creation (`tests/factories/`)
+- Integration tests should use real API calls when possible
 
-IMPORTANT: this context may or may not be relevant to your tasks. You should not respond to this context unless it is highly relevant to your task.
+### Error Handling
+- Permission errors (403) are handled by adding `projectsWhereUserHasPermission` filters
+- All API errors should be caught and displayed to users via Notice
+- Sync operations continue with accessible issues even if some fail
+
+## API Migration Notes
+
+Critical migration from deprecated Jira endpoints by May 1, 2025:
+- Old: `POST /rest/api/3/search`
+- New: `POST /rest/api/3/search/jql`
+- Token-based pagination: `nextPageToken` instead of `startAt`
+- Must explicitly request fields (minimal by default)
+
+## Key Settings
+
+Settings are managed through `JiraSyncProSettings` interface:
+- `jiraUrl`, `jiraUsername`, `jiraApiToken`: Authentication
+- `jqlQuery`: JQL query for filtering tickets
+- `syncInterval`: Auto-sync frequency (1-60 minutes)
+- `syncFolder`: Target folder for ticket notes
+
+## Project-Specific Considerations
+
+1. **Build Output**: Vite builds to `main.js` in project root (not `dist/`)
+2. **Obsidian Reload**: After building, reload Obsidian with Cmd+R to see changes
+3. **Timer Testing**: Tests using timers must explicitly call `jest.useFakeTimers()` due to Jest conflicts
+4. **Permission Handling**: All JQL queries automatically wrapped with permission filters

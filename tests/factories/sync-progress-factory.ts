@@ -570,13 +570,13 @@ export class SyncProgressFactory {
    * Creates mock progress update function for testing
    */
   static createMockProgressCallback(): {
-    callback: jest.Mock;
+    callback: vi.Mock;
     getUpdates: () => Array<SyncProgress>;
     getLastUpdate: () => SyncProgress | null;
     waitForPhase: (phase: SyncPhase, timeout?: number) => Promise<void>;
   } {
     const updates: SyncProgress[] = [];
-    const callback = jest.fn((progress: SyncProgress) => {
+    const callback = vi.fn((progress: SyncProgress) => {
       updates.push({ ...progress });
     });
 

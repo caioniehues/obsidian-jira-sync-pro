@@ -17,7 +17,7 @@
  * 7. Verify sync status updates
  */
 
-import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, vi, beforeEach, afterEach } from '@vitest/globals';
 import {
   createTestSuite,
   waitFor,
@@ -45,7 +45,7 @@ describe('Integration: Basic Auto-Sync Setup (Scenario 1)', () => {
   let mockApp: App;
   let mockPlugin: Plugin;
   let mockVault: Vault;
-  let mockJiraClient: jest.Mocked<JiraClient>;
+  let mockJiraClient: vi.Mocked<JiraClient>;
   let autoSyncScheduler: AutoSyncScheduler;
   let jqlQueryEngine: JQLQueryEngine;
   let bulkImportManager: BulkImportManager;
@@ -194,17 +194,17 @@ Login form not validating email format correctly
 
     // Mock plugin data persistence
     let savedPluginData: any = {};
-    mockPlugin.loadData = jest.fn().mockResolvedValue(savedPluginData);
-    mockPlugin.saveData = jest.fn().mockImplementation(async (data) => {
+    mockPlugin.loadData = vi.fn().mockResolvedValue(savedPluginData);
+    mockPlugin.saveData = vi.fn().mockImplementation(async (data) => {
       savedPluginData = { ...savedPluginData, ...data };
     });
 
     // Setup mock Jira client
     mockJiraClient = {
-      searchIssues: jest.fn(),
-      testConnection: jest.fn(),
-      validateJQLQuery: jest.fn(),
-      getServerInfo: jest.fn(),
+      searchIssues: vi.fn(),
+      testConnection: vi.fn(),
+      validateJQLQuery: vi.fn(),
+      getServerInfo: vi.fn(),
     } as any;
 
     // Mock successful Jira responses
@@ -223,21 +223,21 @@ Login form not validating email format correctly
     mockJiraClient.testConnection.mockResolvedValue({ success: true });
 
     // Mock vault operations for file creation
-    jest.spyOn(mockVault, 'create').mockImplementation(async (path: string, content: string) => {
+    vi.spyOn(mockVault, 'create').mockImplementation(async (path: string, content: string) => {
       mockFs.createFile(path, content);
       return new TFile(path);
     });
 
-    jest.spyOn(mockVault, 'getAbstractFileByPath').mockImplementation((path: string) => {
+    vi.spyOn(mockVault, 'getAbstractFileByPath').mockImplementation((path: string) => {
       return mockFs.fileExists(path) ? new TFile(path) : null;
     });
 
-    jest.spyOn(mockVault, 'modify').mockImplementation(async (file: TFile, content: string) => {
+    vi.spyOn(mockVault, 'modify').mockImplementation(async (file: TFile, content: string) => {
       mockFs.createFile(file.path, content);
     });
 
     // Clear all mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   afterEach(() => {

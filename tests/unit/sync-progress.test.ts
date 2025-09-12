@@ -7,7 +7,7 @@
  * The actual SyncProgress implementation does not exist yet.
  */
 
-import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, vi, beforeEach, afterEach } from '@vitest/globals';
 import { MockTimer, createDeferred, waitFor } from '../utils/test-helpers';
 
 // These imports WILL FAIL initially - this is the TDD requirement

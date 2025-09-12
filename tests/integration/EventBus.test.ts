@@ -50,7 +50,7 @@ describe('EventBus - Enhanced Plugin Communication', () => {
     });
 
     it('should support targeted plugin requests', async () => {
-      const requestHandler = jest.fn();
+      const requestHandler = vi.fn();
       
       // Set up targeted responder
       eventBus.on(JiraIntegrationEvent.DATA_REQUEST, (payload: DataRequestPayload) => {
@@ -109,9 +109,9 @@ describe('EventBus - Enhanced Plugin Communication', () => {
 
   describe('Event Routing', () => {
     it('should route events to specific plugins', () => {
-      const handler1 = jest.fn();
-      const handler2 = jest.fn();
-      const handler3 = jest.fn();
+      const handler1 = vi.fn();
+      const handler2 = vi.fn();
+      const handler3 = vi.fn();
 
       eventBus.on('test-event', handler1);
       eventBus.on('test-event', handler2);
@@ -137,7 +137,7 @@ describe('EventBus - Enhanced Plugin Communication', () => {
     });
 
     it('should emit to all when no routing rules', () => {
-      const handler = jest.fn();
+      const handler = vi.fn();
       eventBus.on('broadcast-event', handler);
 
       eventBus.routeEvent('broadcast-event', { data: 'broadcast' });
@@ -206,7 +206,7 @@ describe('EventBus - Enhanced Plugin Communication', () => {
 
   describe('Subscription Management', () => {
     it('should manage subscriptions with automatic cleanup', () => {
-      const handler = jest.fn();
+      const handler = vi.fn();
       
       const subscription = eventBus.subscribe('test-event', handler);
       
@@ -224,7 +224,7 @@ describe('EventBus - Enhanced Plugin Communication', () => {
     });
 
     it('should subscribe to multiple events at once', () => {
-      const handler = jest.fn();
+      const handler = vi.fn();
       
       const subscriptions = eventBus.subscribeMultiple(
         ['event1', 'event2', 'event3'],

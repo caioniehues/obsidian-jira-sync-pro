@@ -238,8 +238,8 @@ export class ConfigFactory {
     };
 
     if (options.includeCallbacks) {
-      baseOptions.onProgress = jest.fn();
-      baseOptions.onError = jest.fn();
+      baseOptions.onProgress = vi.fn();
+      baseOptions.onError = vi.fn();
     }
 
     return baseOptions;
